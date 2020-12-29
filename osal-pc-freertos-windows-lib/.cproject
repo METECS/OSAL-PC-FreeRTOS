@@ -45,8 +45,8 @@
 									<listOptionValue builtIn="false" value="RTEMS_DEPRECATED_TYPES"/>
 								</option>
 								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="gnu.c.compiler.option.include.paths.262138033" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/ut_assert/inc}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/inc}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/shared}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/bsp/pc-freertos-windows/config}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS_Source/portable/MSVC-MingW}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows}&quot;"/>
@@ -56,7 +56,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-TCP/include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/Compiler/GCC}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/WinPCap-SDK}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/shared}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/ut_assert/inc}&quot;"/>
 								</option>
 								<option id="gnu.c.compiler.option.misc.other.1166448137" name="Other flags" superClass="gnu.c.compiler.option.misc.other" useByScannerDiscovery="false" value="-c -fmessage-length=0 -m32" valueType="string"/>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.276370814" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
@@ -66,8 +66,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="shared|ut_assert/src|bsp|src" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="shared"/>
+						<entry excluding="share|shared|ut_assert/src|bsp|src" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
@@ -79,8 +78,11 @@
 				<externalSettings>
 					<externalSetting>
 						<entry flags="VALUE_WORKSPACE_PATH" kind="includePath" name="/osal-pc-freertos-windows"/>
+						<entry flags="VALUE_WORKSPACE_PATH" kind="includePath" name="/osal-pc-freertos-windows-lib"/>
 						<entry flags="VALUE_WORKSPACE_PATH" kind="libraryPath" name="/osal-pc-freertos-windows/Release"/>
+						<entry flags="VALUE_WORKSPACE_PATH" kind="libraryPath" name="/osal-pc-freertos-windows-lib/Release"/>
 						<entry flags="RESOLVED" kind="libraryFile" name="osal-pc-freertos-windows" srcPrefixMapping="" srcRootPath=""/>
+						<entry flags="RESOLVED" kind="libraryFile" name="osal-pc-freertos-windows-lib" srcPrefixMapping="" srcRootPath=""/>
 					</externalSetting>
 				</externalSettings>
 				<extensions>
@@ -136,7 +138,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="bsp|src" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="share|bsp|src" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
@@ -166,4 +168,5 @@
 			<resource resourceType="PROJECT" workspacePath="/osal-pc-freertos-windows"/>
 		</configuration>
 	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
 </cproject>
