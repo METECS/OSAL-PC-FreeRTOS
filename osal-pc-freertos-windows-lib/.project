@@ -25,6 +25,11 @@
 	</natures>
 	<linkedResources>
 		<link>
+			<name>shared</name>
+			<type>2</type>
+			<location>C:/Users/ccsulli2/Documents/osal_v5/osal/src/os/shared</location>
+		</link>
+		<link>
 			<name>ut_assert</name>
 			<type>2</type>
 			<locationURI>OSAL_ROOT/ut_assert</locationURI>
@@ -150,11 +155,11 @@
 	<variableList>
 		<variable>
 			<name>FREERTOS_ROOT</name>
-			<value>file:/C:/workspace-osal-pc-freertos/FreeRTOS</value>
+			<value>file:/C:/Users/ccsulli2/Documents/FreeRTOS</value>
 		</variable>
 		<variable>
 			<name>OSAL_ROOT</name>
-			<value>file:/C:/workspace-osal-pc-freertos/osal</value>
+			<value>file:/C:/Users/ccsulli2/Documents/osal_v5/osal</value>
 		</variable>
 	</variableList>
 </projectDescription>

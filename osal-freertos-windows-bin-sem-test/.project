@@ -50,7 +50,7 @@
 	<variableList>
 		<variable>
 			<name>OSAL_ROOT</name>
-			<value>file:/C:/workspace-osal-pc-freertos/osal</value>
+			<value>file:/C:/Users/ccsulli2/Documents/osal_v5/osal</value>
 		</variable>
 	</variableList>
 </projectDescription>

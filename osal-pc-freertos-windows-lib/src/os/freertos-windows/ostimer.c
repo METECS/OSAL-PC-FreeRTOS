@@ -1,556 +1,594 @@
 /*
- * This file contains the OSAL Timer API for FreeRTOS
+ *  NASA Docket No. GSC-18,370-1, and identified as "Operating System Abstraction Layer"
  *
- * Based on src/os/rtems/ostimer.c from the OSAL distribution wit the
- * following license:
- *      Copyright (c) 2004-2006, United States government as represented by the
- *      administrator of the National Aeronautics Space Administration.
- *      All rights reserved. This software was created at NASAs Goddard
- *      Space Flight Center pursuant to government contracts.
+ *  Copyright (c) 2019 United States Government as represented by
+ *  the Administrator of the National Aeronautics and Space Administration.
+ *  All Rights Reserved.
  *
- *      This is governed by the NASA Open Source Agreement and may be used,
- *      distributed and modified only pursuant to the terms of that agreement.
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
-#include "FreeRTOS.h"
-#include "timers.h"
-#include "semphr.h"
 
-#include "common_types.h"
-#include "osapi.h"
-#include "ostimerex.h"
+/**
+ * \file   ostimer.c
+ * \author Christopher Sullivan based on work by joseph.p.hickey@nasa.gov and Jonathan Brandenburg
+ *
+ * Purpose: This file contains the OSAL Timer API for FreeRTOS
+ */
+
+/****************************************************************************************
+ INCLUDE FILES
+ ***************************************************************************************/
+
+#include "os-FreeRTOS.h"
+#include "timers.h"
 
 /****************************************************************************************
  EXTERNAL FUNCTION PROTOTYPES
- ****************************************************************************************/
+ ***************************************************************************************/
 
-uint32 OS_FindCreator(void);
+TickType_t getElapsedSeconds();
+TickType_t getElapsedMicroseconds();
 
 /****************************************************************************************
  INTERNAL FUNCTION PROTOTYPES
  ****************************************************************************************/
 
-void OS_TicksToUsecs(TickType_t ticks, uint32 *usecs);
-void OS_TimerShim(TimerHandle_t xTimer);
+void  OS_UsecsToTicks(uint32 usecs, TickType_t *ticks);
+int32 OS_TimerGetIdByHostId(uint32 *timer_id, TimerHandle_t host_timer_id);
 
 /****************************************************************************************
  DEFINES
  ****************************************************************************************/
 
-#define UNINITIALIZED 0
+/* Each "timebase" resource spawns an dedicated servicing task-
+ * this task (not the timer ISR) is the context that calls back to
+ * the user application.
+ *
+ * This should run at the highest priority to reduce latency.
+ */
+#define OSAL_TIMEBASE_TASK_STACK_SIZE       configTIMER_TASK_STACK_DEPTH
+#define OSAL_TIMEBASE_TASK_PRIORITY         configTIMER_TASK_PRIORITY
 
 /****************************************************************************************
  LOCAL TYPEDEFS
  ****************************************************************************************/
 
-typedef struct {
-	uint32 free;
-	char name[OS_MAX_API_NAME];
-	char original_name[MAX_API_NAME_INCOMING];
-	uint32 creator;
-	uint32 start_time;
-	uint32 interval_time;
-	uint32 accuracy;
-	OS_TimerCallback_t callback_ptr;
-	TimerHandle_t host_timerid;
-	uint32 entry_number; /* This is the entry number of each instance of this structure in the queue table */
-
-} OS_timer_internal_record_t;
+typedef struct
+{
+	TimerHandle_t				host_timer_id;
+	SemaphoreHandle_t           tick_sem;
+	SemaphoreHandle_t           handler_mutex;
+	TaskHandle_t         		handler_task;
+    uint8						simulate_flag;
+    uint8		        	    reset_flag;
+    TickType_t					interval_ticks;
+} OS_impl_timebase_internal_record_t;
 
 /****************************************************************************************
  GLOBAL DATA
  ****************************************************************************************/
 
-OS_timer_internal_record_t OS_timer_table[OS_MAX_TIMERS];
-uint32 os_clock_accuracy;
+OS_impl_timebase_internal_record_t OS_impl_timebase_table[OS_MAX_TIMEBASES];
 
-/*
- ** The Mutex for protecting the above table
- */
-SemaphoreHandle_t OS_timer_table_sem;
+static int32 adjust_seconds = 0;
+static int32 adjust_microseconds = 0;
 
-/* A counter to ensure generated names are unique */
-static uint8 name_counter = 0;
+/*----------------------------------------------------------------
+ *
+ * Function: OS_TimeBaseLock_Impl
+ *
+ *  Purpose: Implemented per internal OSAL API
+ *           See prototype in os-impl.h for argument/return detail
+ *
+ *-----------------------------------------------------------------*/
+void OS_TimeBaseLock_Impl(uint32 local_id)
+{
+	xSemaphoreTake(OS_impl_timebase_table[local_id].handler_mutex, portMAX_DELAY);
+} /* end OS_TimeBaseLock_Impl */
+
+/*----------------------------------------------------------------
+ *
+ * Function: OS_TimeBaseUnlock_Impl
+ *
+ *  Purpose: Implemented per internal OSAL API
+ *           See prototype in os-impl.h for argument/return detail
+ *
+ *-----------------------------------------------------------------*/
+void OS_TimeBaseUnlock_Impl(uint32 local_id)
+{
+	xSemaphoreGive(OS_impl_timebase_table[local_id].handler_mutex);
+} /* end OS_TimeBaseUnlock_Impl */
+
+/*----------------------------------------------------------------
+ *
+ * Function: OS_Callback
+ *
+ *  Purpose: Local helper routine, not part of OSAL API.
+ *
+ *-----------------------------------------------------------------*/
+void OS_Callback(TimerHandle_t xTimer)
+{
+	BaseType_t status;
+	/* Find the id of the timer */
+	uint32 local_id;
+	OS_impl_timebase_internal_record_t *local;
+	if(OS_TimerGetIdByHostId(&local_id, xTimer) == OS_SUCCESS)
+	{
+		local = &OS_impl_timebase_table[local_id];
+
+		/*
+		 * Reset the timer, but only if an interval was selected
+		 */
+		if(local->interval_ticks > 0)
+		{
+			status = xTimerChangePeriod(local->host_timer_id, local->interval_ticks, portMAX_DELAY);
+			if(status == pdPASS)
+			{
+				xTimerStart(local->host_timer_id, portMAX_DELAY);
+			}
+		}
+
+		/*
+		 * FreeRTOS OS timers implemented with an ISR callback
+		 * this must be downgraded to an ordinary task context
+		 *
+		 * This is accomplished by just releasing a semaphore here.
+		 */
+		xSemaphoreGive(local->tick_sem);
+	}
+
+} /* end OS_Callback */
+
+/*----------------------------------------------------------------
+ *
+ * Function: OS_TimeBase_WaitImpl
+ *
+ *  Purpose: Local helper routine, not part of OSAL API.
+ *           Pends on the semaphore for the next timer tick
+ *
+ *-----------------------------------------------------------------*/
+static uint32 OS_TimeBase_WaitImpl(uint32 local_id)
+{
+    OS_impl_timebase_internal_record_t *local;
+    uint32 interval_time;
+
+    local = &OS_impl_timebase_table[local_id];
+
+    /*
+     * Determine how long this tick was.
+     * Note that there are plenty of ways this become wrong if the timer
+     * is reset right around the time a tick comes in.  However, it is
+     * impossible to guarantee the behavior of a reset if the timer is running.
+     * (This is not an expected use-case anyway; the timer should be set and forget)
+     */
+    if(local->reset_flag == 0)
+    {
+        interval_time = OS_timebase_table[local_id].nominal_interval_time;
+    }
+    else
+    {
+        interval_time = OS_timebase_table[local_id].nominal_start_time;
+        local->reset_flag = 0;
+    }
+
+    /*
+     * Pend for the tick arrival
+     */
+    xSemaphoreTake(local->tick_sem, portMAX_DELAY);
+
+    return interval_time;
+} /* end OS_TimeBase_WaitImpl */
 
 /****************************************************************************************
  INITIALIZATION FUNCTION
- ****************************************************************************************/
-int32 OS_TimerAPIInit(void) {
-	int i;
-	int32 return_code = OS_SUCCESS;
+ ***************************************************************************************/
 
-	/*
-	 ** Mark all timers as available
-	 */
-	for (i = 0; i < OS_MAX_TIMERS; i++) {
-		OS_timer_table[i].free = TRUE;
-		OS_timer_table[i].creator = UNINITIALIZED;
-		strcpy(OS_timer_table[i].name, "");
-		OS_timer_table[i].entry_number = i;
+/*----------------------------------------------------------------
+ *
+ *  Function:  OS_FreeRTOS_TimeBaseAPI_Impl_Init
+ *
+ *  Purpose:  Initialize the timer implementation layer
+ *
+ *-----------------------------------------------------------------*/
+int32 OS_FreeRTOS_TimeBaseAPI_Impl_Init(void)
+{
+	TickType_t ticks_per_sec = configTICK_RATE_HZ;
+
+	if(ticks_per_sec <= 0)
+	{
+		return OS_ERROR;
 	}
 
 	/*
-	 ** Store the clock accuracy for 1 tick.
-	 */
-	OS_TicksToUsecs(1, &os_clock_accuracy);
+	* For the global ticks per second, use the value direct from the config
+	*/
+	OS_SharedGlobalVars.TicksPerSecond = (int32)ticks_per_sec;
 
 	/*
-	 ** Create the Timer Table semaphore
-	 */
-	OS_timer_table_sem = xSemaphoreCreateMutex();
-	if (OS_timer_table_sem == NULL) {
-		return_code = OS_ERROR;
-		return (return_code);
-	}
+	* Compute the clock accuracy in Nanoseconds (ns per tick)
+	* This really should be an exact/whole number result; otherwise this
+	* will round to the nearest nanosecond.
+	*/
+	FreeRTOS_GlobalVars.ClockAccuracyNsec = (1000000000 + (OS_SharedGlobalVars.TicksPerSecond / 2)) / OS_SharedGlobalVars.TicksPerSecond;
 
-	return (return_code);
+	/*
+	* Finally compute the Microseconds per tick that is used for OS_Tick2Micros() call
+	* This must further round again to the nearest microsecond, so it is undesirable to use
+	* this for time computations if the result is not exact.
+	*/
+	OS_SharedGlobalVars.MicroSecPerTick = (FreeRTOS_GlobalVars.ClockAccuracyNsec + 500) / 1000;
 
-}
+	return OS_SUCCESS;
+} /* end OS_FreeRTOS_TimeBaseAPI_Impl_Init */
 
 /****************************************************************************************
  INTERNAL FUNCTIONS
  ****************************************************************************************/
 
-/******************************************************************************
- **  Function:  OS_UsecToTicks
- **
- **  Purpose:  Convert Microseconds to a number of ticks.
- **
- */
-void OS_UsecsToTicks(uint32 usecs, TickType_t *ticks) {
-	TickType_t ticks_per_sec = configTICK_RATE_HZ;
-	uint32 usecs_per_tick;
+/*----------------------------------------------------------------
+ *
+ * Function: OS_UsecsToTicks
+ *
+ *  Purpose:  Convert Microseconds to a number of ticks.
+ *
+ *-----------------------------------------------------------------*/
+void  OS_UsecsToTicks(uint32 usecs, TickType_t *ticks)
+{
+   uint32 result;
 
-	usecs_per_tick = (1000000) / ticks_per_sec;
+   /*
+    * In order to compute without overflowing a 32 bit integer,
+    * this is done in 2 parts -
+    * the fractional seconds first then add any whole seconds.
+    * the fractions are rounded UP so that this is guaranteed to produce
+    * a nonzero number of ticks for a nonzero number of microseconds.
+    */
 
-	if (usecs < usecs_per_tick) {
-		*ticks = 1;
-	} else {
-		*ticks = usecs / usecs_per_tick;
-		/* Need to round up?? */
-	}
-}
+   result = (1000 * (usecs % 1000000) + FreeRTOS_GlobalVars.ClockAccuracyNsec - 1) / FreeRTOS_GlobalVars.ClockAccuracyNsec;
 
-/******************************************************************************
- **  Function:  OS_TicksToUsec
- **
- **  Purpose:  Convert a number of Ticks to microseconds
- **
- */
-void OS_TicksToUsecs(TickType_t ticks, uint32 *usecs) {
-	TickType_t ticks_per_sec = configTICK_RATE_HZ;
-	uint32 usecs_per_tick;
+   if(usecs >= 1000000)
+   {
+      result += (usecs / 1000000) * OS_SharedGlobalVars.TicksPerSecond;
+   }
 
-	usecs_per_tick = (1000000) / ticks_per_sec;
+   *ticks = (TickType_t)result;
+} /* end OS_UsecsToTicks */
 
-	*usecs = ticks * usecs_per_tick;
-}
+/*----------------------------------------------------------------
+ *
+ * Function: OS_TimerGetIdByHostId
+ *
+ *  Purpose:  This function tries to find a Timer Id given the host-specific id
+ *             The id is returned through timer_id
+ *
+ *-----------------------------------------------------------------*/
+int32 OS_TimerGetIdByHostId(uint32 *timer_id, TimerHandle_t host_timer_id)
+{
+	uint32 i;
 
-/****************************************************************************************
- Timer API
- ****************************************************************************************/
-
-/******************************************************************************
- **  Function:  OS_TimerCreate
- **
- **  Purpose:  Create a new OSAL Timer
- **
- **  Arguments:
- **
- **  Return:
- */
-int32 OS_TimerCreate(uint32 *timer_id, const char *timer_name,
-		uint32 *clock_accuracy, OS_TimerCallback_t callback_ptr) {
-	uint32 possible_tid;
-	int32 i;
-
-	if (timer_id == NULL || timer_name == NULL || clock_accuracy == NULL) {
+	if(timer_id == NULL || host_timer_id == NULL)
+	{
 		return OS_INVALID_POINTER;
 	}
 
-	char os_unique_name[OS_MAX_API_NAME];
-	snprintf(os_unique_name, OS_MAX_API_NAME, "%-*.*s%02x", (OS_MAX_API_NAME-3), (OS_MAX_API_NAME-3), timer_name, name_counter++);
-
-	/*
-	 ** we don't want to allow names too long
-	 ** if truncated, two names might be the same
-	 */
-	if (strlen(timer_name) > MAX_API_NAME_INCOMING) {
-		return OS_ERR_NAME_TOO_LONG;
-	}
-	if (strlen(os_unique_name) >= OS_MAX_API_NAME) {
-		return OS_ERR_NAME_TOO_LONG;
-	}
-
-	/*
-	 ** Check Parameters
-	 */
-	xSemaphoreTake(OS_timer_table_sem, portMAX_DELAY);
-
-	for (possible_tid = 0; possible_tid < OS_MAX_TIMERS; possible_tid++) {
-		if (OS_timer_table[possible_tid].free == TRUE)
-			break;
-	}
-
-	if (possible_tid >= OS_MAX_TIMERS
-			|| OS_timer_table[possible_tid].free != TRUE) {
-		xSemaphoreGive(OS_timer_table_sem);
-		return OS_ERR_NO_FREE_IDS;
-	}
-
-	/*
-	 ** Check to see if the name is already taken
-	 */
-	for (i = 0; i < OS_MAX_TIMERS; i++) {
-		if ((OS_timer_table[i].free == FALSE)
-				&& strcmp((char*) timer_name, OS_timer_table[i].original_name) == 0) {
-			xSemaphoreGive(OS_timer_table_sem);
-			return OS_ERR_NAME_TAKEN;
+	for(i = 0; i < OS_MAX_TIMEBASES; i++)
+	{
+		if(OS_impl_timebase_table[i].host_timer_id == host_timer_id)
+		{
+			*timer_id = i;
+			return OS_SUCCESS;
 		}
 	}
 
 	/*
-	 ** Verify callback parameter
+	 ** The name was not found in the table
 	 */
-	if (callback_ptr == NULL) {
-		xSemaphoreGive(OS_timer_table_sem);
-		return OS_TIMER_ERR_INVALID_ARGS;
+	return OS_ERR_NAME_NOT_FOUND;
+}/* end OS_TimerGetIdByName */
+
+/****************************************************************************************
+ Time Base API
+ ***************************************************************************************/
+
+/*----------------------------------------------------------------
+ *
+ * Function: OS_TimeBaseCreate_Impl
+ *
+ *  Purpose: Implemented per internal OSAL API
+ *           See prototype in os-impl.h for argument/return detail
+ *
+ *-----------------------------------------------------------------*/
+int32 OS_TimeBaseCreate_Impl(uint32 timer_id)
+{
+	int32 return_code;
+	OS_impl_timebase_internal_record_t *local;
+	OS_common_record_t *global;
+	char * dummy = "";
+
+    return_code = OS_SUCCESS;
+    local = &OS_impl_timebase_table[timer_id];
+    global = &OS_global_timebase_table[timer_id];
+
+    /*
+	 * Set up the necessary OS constructs
+	 *
+	 * If an external sync function is used then there is nothing to do here -
+	 * we simply call that function and it should synchronize to the time source.
+	 *
+	 * If no external sync function is provided then this will set up an FreeRTOS
+	 * timer to locally simulate the timer tick using the CPU clock.
+	 */
+	local->simulate_flag = (OS_timebase_table[timer_id].external_sync == NULL);
+	if(local->simulate_flag)
+	{
+		OS_timebase_table[timer_id].external_sync = OS_TimeBase_WaitImpl;
+
+		/*
+		 * The tick_sem is a simple semaphore posted by the ISR and taken by the
+		 * timebase helper task (created later).
+		 */
+		local->tick_sem = xSemaphoreCreateBinary();
+
+		if(local->tick_sem == NULL)
+		{
+			return_code = OS_TIMER_ERR_INTERNAL;
+		}
+
+		/*
+		 * The handler_mutex is deals with access to the callback list for this timebase
+		 */
+		local->handler_mutex = xSemaphoreCreateMutex();
+		if(local->handler_mutex == NULL)
+		{
+			vSemaphoreDelete(local->tick_sem);
+			return_code = OS_TIMER_ERR_INTERNAL;
+		}
+
+		//Set interval_ticks to 1 to start
+		local->interval_ticks = 1;
+		/*
+		 ** Create an interval timer
+		 */
+		local->host_timer_id = xTimerCreate(dummy,
+									local->interval_ticks,
+									pdFALSE,
+									0,
+									OS_Callback);
+
+		if(local->host_timer_id == NULL)
+		{
+			vSemaphoreDelete (local->handler_mutex);
+			vSemaphoreDelete (local->tick_sem);
+			return_code = OS_TIMER_ERR_UNAVAILABLE;
+		}
 	}
 
 	/*
-	 ** Set the possible timer Id to not free so that
-	 ** no other task can try to use it
+	 * Spawn a dedicated time base handler thread
+	 *
+	 * This alleviates the need to handle expiration in the context of a signal handler -
+	 * The handler thread can call a BSP synchronized delay implementation as well as the
+	 * application callback function.  It should run with elevated priority to reduce latency.
+	 *
+	 * Note the thread will not actually start running until this function exits and releases
+	 * the global table lock.
 	 */
-	OS_timer_table[possible_tid].free = FALSE;
-	xSemaphoreGive(OS_timer_table_sem);
+	if(return_code == OS_SUCCESS)
+	{
+		BaseType_t status;
+		status = xTaskCreate((TaskFunction_t) OS_TimeBase_CallbackThread,
+							dummy,
+							OSAL_TIMEBASE_TASK_STACK_SIZE,
+							(void *)global->active_id,
+							OSAL_TIMEBASE_TASK_PRIORITY,
+							&local->handler_task);
 
-	OS_timer_table[possible_tid].creator = OS_FindCreator();
-	strncpy(OS_timer_table[possible_tid].name, os_unique_name, OS_MAX_API_NAME);
-	strncpy(OS_timer_table[possible_tid].original_name, timer_name, MAX_API_NAME_INCOMING);
-	OS_timer_table[possible_tid].start_time = 0;
-	OS_timer_table[possible_tid].interval_time = 1;
-	OS_timer_table[possible_tid].callback_ptr = callback_ptr;
-
-	/*
-	 ** Create an interval timer
-	 */
-	OS_timer_table[possible_tid].host_timerid = xTimerCreate(
-			OS_timer_table[possible_tid].name,
-			OS_timer_table[possible_tid].interval_time,
-			pdFALSE, &OS_timer_table[i].entry_number, OS_TimerShim);
-	if (OS_timer_table[possible_tid].host_timerid == NULL) {
-		OS_timer_table[possible_tid].free = TRUE;
-		return (OS_TIMER_ERR_UNAVAILABLE);
+		if(status != pdPASS)
+		{
+			return_code = OS_TIMER_ERR_INTERNAL;
+			/* Also delete the resources we allocated earlier */
+			xTimerDelete(local->host_timer_id, portMAX_DELAY);
+			vSemaphoreDelete(local->handler_mutex);
+			vSemaphoreDelete (local->tick_sem);
+		}
 	}
 
-	/*
-	 ** Return the clock accuracy to the user
-	 */
-	*clock_accuracy = os_clock_accuracy;
+	return return_code;
+} /* end OS_TimeBaseCreate_Impl */
 
-	/*
-	 ** Return timer ID
-	 */
-	*timer_id = possible_tid;
-
-	return OS_SUCCESS;
-}
-
-/******************************************************************************
- **  Function:  OS_TimerShim
- **
- **  Purpose: This is the function called when a timer trigers. It will call
- **  the callback function and then rearm the timer if the interval is > 0
- **
- **  Arguments:
- **    xTimer - The OS-specific id of the timer
- **
- **  Return:
- **    (none)
- */
-void OS_TimerShim(TimerHandle_t xTimer) {
-	TickType_t timeout;
+/*----------------------------------------------------------------
+ *
+ * Function: OS_TimeBaseSet_Impl
+ *
+ *  Purpose: Implemented per internal OSAL API
+ *           See prototype in os-impl.h for argument/return detail
+ *
+ *-----------------------------------------------------------------*/
+int32 OS_TimeBaseSet_Impl(uint32 timer_id, int32 start_time, int32 interval_time)
+{
+	OS_impl_timebase_internal_record_t *local;
+	int32 return_code;
 	BaseType_t status;
+    TickType_t start_ticks;
 
-	/* Find the id of the timer */
-	uint32 timer_id;
-	if (OS_TimerGetIdByHostId(&timer_id, xTimer) == OS_SUCCESS) {
-		/* Ensure the timer id is valid */
-		if (timer_id < OS_MAX_TIMERS || OS_timer_table[timer_id].free != TRUE) {
-			/* perform the callback */
-			OS_timer_table[timer_id].callback_ptr(timer_id);
+	local = &OS_impl_timebase_table[timer_id];
+	return_code = OS_SUCCESS;
 
-			/* Rearm the timer */
-			if (OS_timer_table[timer_id].interval_time > 0) {
-				/*
-				 ** Convert from Microseconds to the timeout
-				 */
-				OS_UsecsToTicks(OS_timer_table[timer_id].interval_time,
-						&timeout);
+	/* There is only something to do here if we are generating a simulated tick */
+	if(local->simulate_flag)
+	{
+		/*
+		** Note that UsecsToTicks() already protects against intervals
+		** less than os_clock_accuracy -- no need for extra checks which
+		** would actually possibly make it less accurate.
+		**
+		** Still want to preserve zero, since that has a special meaning.
+		*/
 
-				status = xTimerChangePeriod(
-						OS_timer_table[timer_id].host_timerid, timeout,
-						portMAX_DELAY);
-				if (status == pdPASS) {
-					xTimerStart(OS_timer_table[timer_id].host_timerid,
-							portMAX_DELAY);
+		if(start_time <= 0)
+		{
+			interval_time = 0;  /* cannot have interval without start */
+		}
+
+		if(interval_time <= 0)
+		{
+			local->interval_ticks = 0;
+		}
+		else
+		{
+			OS_UsecsToTicks(interval_time, &local->interval_ticks);
+		}
+
+		if(start_time > 0)
+		{
+			/*
+			** Convert from Microseconds to the timeout
+			*/
+			OS_UsecsToTicks(start_time, &start_ticks);
+
+			status = xTimerChangePeriod(local->host_timer_id, start_ticks, portMAX_DELAY);
+			if(status == pdPASS)
+			{
+				status = xTimerStart(local->host_timer_id, portMAX_DELAY);
+				if(status == pdPASS)
+				{
+					if(local->interval_ticks > 0)
+					{
+					   start_ticks = local->interval_ticks;
+					}
+
+					OS_timebase_table[timer_id].accuracy_usec = (start_ticks * 100000) / OS_SharedGlobalVars.TicksPerSecond;
+					OS_timebase_table[timer_id].accuracy_usec *= 10;
 				}
+				else
+				{
+					return_code = OS_TIMER_ERR_INTERNAL;
+				}
+			}
+			else
+			{
+				return_code = OS_TIMER_ERR_INTERNAL;
 			}
 		}
 	}
 
-}
-
-/******************************************************************************
- **  Function:  OS_TimerSet
- **
- **  Purpose:
- **
- **  Arguments:
- **    (none)
- **
- **  Return:
- **    (none)
- */
-int32 OS_TimerSet(uint32 timer_id, uint32 start_time, uint32 interval_time) {
-	TickType_t timeout;
-	BaseType_t status;
-
-	/*
-	 ** Check to see if the timer_id given is valid
-	 */
-	if (timer_id >= OS_MAX_TIMERS || OS_timer_table[timer_id].free == TRUE) {
-		return OS_ERR_INVALID_ID;
+	if(local->reset_flag == 0 && return_code == OS_SUCCESS)
+	{
+		local->reset_flag = 1;
 	}
 
-	/*
-	 ** Round up the accuracy of the start time and interval times.
-	 ** Still want to preserve zero, since that has a special meaning.
-	 */
-	if ((start_time > 0) && (start_time < os_clock_accuracy)) {
-		start_time = os_clock_accuracy;
-	}
+	return return_code;
+} /* end OS_TimeBaseSet_Impl */
 
-	if ((interval_time > 0) && (interval_time < os_clock_accuracy)) {
-		interval_time = os_clock_accuracy;
-	}
-
-	/*
-	 ** Save the start and interval times
-	 */
-	OS_timer_table[timer_id].start_time = start_time;
-	OS_timer_table[timer_id].interval_time = interval_time;
-
-	/*
-	 ** The defined behavior is to not arm the timer if the start time is zero
-	 ** If the interval time is zero, then the timer will not be re-armed.
-	 */
-	if (start_time > 0) {
-		/*
-		 ** Convert from Microseconds to the timeout
-		 */
-		OS_UsecsToTicks(start_time, &timeout);
-
-		status = xTimerChangePeriod(OS_timer_table[timer_id].host_timerid,
-				timeout, portMAX_DELAY);
-		if (status != pdPASS) {
-			return ( OS_TIMER_ERR_INTERNAL);
-		}
-
-		status = xTimerStart(OS_timer_table[timer_id].host_timerid,
-				portMAX_DELAY);
-		if (status != pdPASS) {
-			return ( OS_TIMER_ERR_INTERNAL);
-		}
-	}
-	return OS_SUCCESS;
-}
-
-/******************************************************************************
- **  Function:  OS_TimerDelete
- **
- **  Purpose:
- **
- **  Arguments:
- **    (none)
- **
- **  Return:
- **    (none)
- */
-int32 OS_TimerDelete(uint32 timer_id) {
-	BaseType_t status;
-
-	/*
-	 ** Check to see if the timer_id given is valid
-	 */
-	if (timer_id >= OS_MAX_TIMERS || OS_timer_table[timer_id].free == TRUE) {
-		return OS_ERR_INVALID_ID;
-	}
-
-	xSemaphoreTake(OS_timer_table_sem, portMAX_DELAY);
-	OS_timer_table[timer_id].free = TRUE;
-	xSemaphoreGive(OS_timer_table_sem);
-
-	/*
-	 ** Delete the timer
-	 */
-	status = xTimerDelete(OS_timer_table[timer_id].host_timerid, portMAX_DELAY);
-	if (status != pdPASS) {
-		return ( OS_TIMER_ERR_INTERNAL);
-	}
-
-	return OS_SUCCESS;
-}
-
-/***********************************************************************************
- **
- **    Name: OS_TimerGetIdByHostId
- **
- **    Purpose: This function tries to find a Timer Id given the host-specific id
- **             The id is returned through timer_id
- **
- **    Returns: OS_INVALID_POINTER if timer_id or timer_name are NULL pointers
- **             OS_ERR_NAME_NOT_FOUND if the name was not found in the table
- **             OS_SUCCESS if success
- **
- */
-int32 OS_TimerGetIdByHostId(uint32 *timer_id, TimerHandle_t host_timer_id) {
-	uint32 i;
-
-	if (timer_id == NULL || host_timer_id == NULL) {
-		return OS_INVALID_POINTER;
-	}
-
-	for (i = 0; i < OS_MAX_TIMERS; i++) {
-		if (OS_timer_table[i].free != TRUE
-				&& OS_timer_table[i].host_timerid == host_timer_id) {
-			*timer_id = i;
-			return OS_SUCCESS;
-		}
-	}
-
-	/*
-	 ** The name was not found in the table,
-	 **  or it was, and the sem_id isn't valid anymore
-	 */
-	return OS_ERR_NAME_NOT_FOUND;
-
-}/* end OS_TimerGetIdByName */
-
-/***********************************************************************************
- **
- **    Name: OS_TimerGetIdByName
- **
- **    Purpose: This function tries to find a Timer Id given the name
- **             The id is returned through timer_id
- **
- **    Returns: OS_INVALID_POINTER if timer_id or timer_name are NULL pointers
- **             OS_ERR_NAME_TOO_LONG if the name given is to long to have been stored
- **             OS_ERR_NAME_NOT_FOUND if the name was not found in the table
- **             OS_SUCCESS if success
- **
- */
-int32 OS_TimerGetIdByName(uint32 *timer_id, const char *timer_name) {
-	uint32 i;
-
-	if (timer_id == NULL || timer_name == NULL) {
-		return OS_INVALID_POINTER;
-	}
-
-	/*
-	 ** a name too long wouldn't have been allowed in the first place
-	 ** so we definitely won't find a name too long
-	 */
-	if (strlen(timer_name) > MAX_API_NAME_INCOMING) {
-		return OS_ERR_NAME_TOO_LONG;
-	}
-
-	for (i = 0; i < OS_MAX_TIMERS; i++) {
-		if (OS_timer_table[i].free != TRUE
-				&& (strcmp(OS_timer_table[i].original_name, (char*) timer_name) == 0)) {
-			*timer_id = i;
-			return OS_SUCCESS;
-		}
-	}
-
-	/*
-	 ** The name was not found in the table,
-	 **  or it was, and the sem_id isn't valid anymore
-	 */
-	return OS_ERR_NAME_NOT_FOUND;
-
-}/* end OS_TimerGetIdByName */
-
-/***************************************************************************************
- **    Name: OS_TimerGetInfo
- **
- **    Purpose: This function will pass back a pointer to structure that contains
- **             all of the relevant info( name and creator) about the specified timer.
- **
- **    Returns: OS_ERR_INVALID_ID if the id passed in is not a valid timer
- **             OS_INVALID_POINTER if the timer_prop pointer is null
- **             OS_SUCCESS if success
- */
-int32 OS_TimerGetInfo(uint32 timer_id, OS_timer_prop_t *timer_prop) {
-	/*
-	 ** Check to see that the id given is valid
-	 */
-	if (timer_id >= OS_MAX_TIMERS || OS_timer_table[timer_id].free == TRUE) {
-		return OS_ERR_INVALID_ID;
-	}
-
-	if (timer_prop == NULL) {
-		return OS_INVALID_POINTER;
-	}
-
-	/*
-	 ** put the info into the stucture
-	 */
-	xSemaphoreTake(OS_timer_table_sem, portMAX_DELAY);
-
-	timer_prop->creator = OS_timer_table[timer_id].creator;
-	strcpy(timer_prop->name, OS_timer_table[timer_id].name);
-	timer_prop->start_time = OS_timer_table[timer_id].start_time;
-	timer_prop->interval_time = OS_timer_table[timer_id].interval_time;
-	timer_prop->accuracy = OS_timer_table[timer_id].accuracy;
-
-	xSemaphoreGive(OS_timer_table_sem);
-
-	return OS_SUCCESS;
-} /* end OS_TimerGetInfo */
-
-/****************************************************************
- * TIME BASE API
+/*----------------------------------------------------------------
  *
- * This is not implemented by this OSAL, so return "OS_ERR_NOT_IMPLEMENTED"
- * for all calls defined by this API.  This is necessary for forward
- * compatibility (runtime code can check for this return code and use
- * an alternative API where appropriate).
- */
+ * Function: OS_TimeBaseDelete_Impl
+ *
+ *  Purpose: Implemented per internal OSAL API
+ *           See prototype in os-impl.h for argument/return detail
+ *
+ *-----------------------------------------------------------------*/
+int32 OS_TimeBaseDelete_Impl(uint32 timer_id)
+{
+	OS_impl_timebase_internal_record_t *local;
+	BaseType_t status;
+	int32 return_code;
 
-int32 OS_TimeBaseCreate(uint32 *timer_id, const char *timebase_name,
-		OS_TimerSync_t external_sync) {
-#warning OS_ERR_NOT_IMPLEMENTED: This function must be implemented on the specific hardware platform
-	return OS_ERR_NOT_IMPLEMENTED;
-}
+	local = &OS_impl_timebase_table[timer_id];
+	return_code = OS_SUCCESS;
 
-int32 OS_TimeBaseSet(uint32 timer_id, uint32 start_time, uint32 interval_time) {
-#warning OS_ERR_NOT_IMPLEMENTED: This function must be implemented on the specific hardware platform
-	return OS_ERR_NOT_IMPLEMENTED;
-}
+	/*
+	** Delete the tasks and timer OS constructs first, then delete the
+	** semaphores.  If the task/timer is running it might try to use them.
+	*/
+	if(local->simulate_flag)
+	{
+		status = xTimerDelete(local->host_timer_id, portMAX_DELAY);
+		if(status != pdPASS)
+		{
+			return OS_TIMER_ERR_INTERNAL;
+		}
 
-int32 OS_TimeBaseDelete(uint32 timer_id) {
-#warning OS_ERR_NOT_IMPLEMENTED: This function must be implemented on the specific hardware platform
-	return OS_ERR_NOT_IMPLEMENTED;
-}
+	}
 
-int32 OS_TimeBaseGetIdByName(uint32 *timer_id, const char *timebase_name) {
-#warning OS_ERR_NOT_IMPLEMENTED: This function must be implemented on the specific hardware platform
-	return OS_ERR_NOT_IMPLEMENTED;
-}
+	vTaskDelete(local->handler_task);
 
-int32 OS_TimerAdd(uint32 *timer_id, const char *timer_name, uint32 timebase_id,
-		OS_ArgCallback_t callback_ptr, void *callback_arg) {
-#warning OS_ERR_NOT_IMPLEMENTED: This function must be implemented on the specific hardware platform
-	return OS_ERR_NOT_IMPLEMENTED;
-}
+	/*
+	 * If any delete/cleanup calls fail, unfortunately there is no recourse.
+	 */
+	if(return_code == OS_SUCCESS)
+	{
+		vSemaphoreDelete(local->handler_mutex);
 
+		if(local->simulate_flag)
+		{
+			vSemaphoreDelete(local->tick_sem);
+            local->simulate_flag = 0;
+		}
+	}
+
+	return return_code;
+} /* end OS_TimeBaseDelete_Impl */
+
+/*----------------------------------------------------------------
+ *
+ * Function: OS_TimeBaseGetInfo_Impl
+ *
+ *  Purpose: Implemented per internal OSAL API
+ *           See prototype in os-impl.h for argument/return detail
+ *
+ *-----------------------------------------------------------------*/
+int32 OS_TimeBaseGetInfo_Impl(uint32 timer_id, OS_timebase_prop_t *timer_prop)
+{
+    return OS_SUCCESS;
+} /* end OS_TimeBaseGetInfo_Impl */
+
+/****************************************************************************************
+ Other Time-Related API Implementation
+ ***************************************************************************************/
+
+/*---------------------------------------------------------------------------------------
+ * Name: OS_GetLocalTime_Impl
+ *
+ * Purpose: This functions get the local time of the machine its on
+ * ------------------------------------------------------------------------------------*/
+int32 OS_GetLocalTime_Impl(OS_time_t *time_struct)
+{
+	time_struct->seconds = getElapsedSeconds() + adjust_seconds;
+	time_struct->microsecs = getElapsedMicroseconds() + adjust_microseconds;
+	while(time_struct->microsecs < 0)
+	{
+		time_struct->microsecs += 1000;
+		time_struct->seconds--;
+	}
+
+	return OS_SUCCESS;
+} /* end OS_GetLocalTime_Impl */
+
+/*---------------------------------------------------------------------------------------
+ * Name: OS_SetLocalTime_Impl
+ *
+ * Purpose: This function sets the local time of the machine its on
+ * ------------------------------------------------------------------------------------*/
+int32 OS_SetLocalTime_Impl(const OS_time_t *time_struct)
+{
+	adjust_seconds = time_struct->seconds - getElapsedSeconds();
+	adjust_microseconds = time_struct->microsecs - getElapsedMicroseconds();
+	while(adjust_microseconds < 0)
+	{
+		adjust_microseconds += 1000;
+		adjust_seconds--;
+	}
+
+	return OS_SUCCESS;
+} /* end OS_SetLocalTime_Impl */

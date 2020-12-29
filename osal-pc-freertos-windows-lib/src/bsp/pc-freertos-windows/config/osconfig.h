@@ -68,22 +68,41 @@
 #define OS_BUFFER_SIZE 172
 #define OS_BUFFER_MSG_DEPTH 100
 
-/* This #define turns on a utility task that
- * will read the statements to print from
- * the OS_printf function. If you want OS_printf
- * to print the text out itself, comment this out 
+/*
+ * Definitions regarding the "utility task"
+ *
+ * The utility task is a special background task started
+ * by OSAL to move data from calls to OS_printf() to the
+ * actual console output device.  In former versions of
+ * OSAL (4.2.x and below), this was a VxWorks-only option.
+ * In the current OSAL, the task is always enabled, but
+ * the performance can still be tuned to achieve the
+ * desired behavior.
+ *
+ * Where realtime performance is a concern, the task
+ * may be set to a low priority (low number) such that
+ * threads calling OS_printf() are not blocked significantly.
+ * However, this may delay the actual output from a call to
+ * OS_printf() from reaching the console.
+ *
+ * During debugging, if it is desired to see output from
+ * OS_printf() immediately as it occurs, this task can be set
+ * to a high priority (high number).  This will effectively
+ * preempt the task that called OS_printf() until the output
+ * is completed.
+ *
+ * By default this is set to configMAX_PRIORITIES - 5 for
+ * relatively high priority/slightly delayed output.
+ * This still leaves some room for lower priority
+ * tasks, if desired.
  * 
- * NOTE: The Utility Task #defines only have meaning 
- * on the VxWorks operating systems
+ * It should not be necessary to change the stack size from
+ * the default.
  */
 
-#undef OS_UTILITY_TASK_ON
-
-#ifdef OS_UTILITY_TASK_ON 
 #define OS_UTILITYTASK_STACK_SIZE 2048
 /* some room is left for other lower priority tasks */
 #define OS_UTILITYTASK_PRIORITY   (configMAX_PRIORITIES - 5)
-#endif
 
 /* 
  ** the size of a command that can be passed to the underlying OS
