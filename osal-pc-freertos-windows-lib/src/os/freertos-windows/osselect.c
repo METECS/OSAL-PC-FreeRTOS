@@ -53,7 +53,6 @@ OS_FreeRTOS_socket_entry_t OS_impl_socket_table[OS_MAX_NUM_OPEN_FILES];
  *          Convert an OS_FdSet (OSAL) structure into an SocketSet_t (FreeRTOS)
  *          which can then be passed to the FreeRTOS_select function.
  *
- * returns: Highest numbered file descriptor in the output SocketSet_t
  *-----------------------------------------------------------------*/
 static void OS_FdSet_ConvertIn_Impl(SocketSet_t *os_set, OS_FdSet *OSAL_set, BaseType_t xSelectBits)
 {
@@ -136,12 +135,22 @@ static int32 OS_DoSelect(SocketSet_t set, int32 msecs)
 {
    int os_status;
    int32 return_code;
+   TickType_t ticks;
+
+   if(msecs>=0)
+   {
+	   OS_UsecsToTicks(msecs*1000, &ticks);
+   }
+   else
+   {
+	   ticks = portMAX_DELAY;
+   }
 
    do
    {
-      os_status = FreeRTOS_select(set, msecs);
+      os_status = FreeRTOS_select(set, ticks);
    }
-   while (os_status == -pdFREERTOS_ERRNO_EINTR); //Loop until complete without signal
+   while (os_status == -pdFREERTOS_ERRNO_EINTR);
 
    if (os_status < 0)
    {
@@ -216,6 +225,8 @@ int32 OS_SelectSingle_Impl(uint32 stream_id, uint32 *SelectFlags, int32 msecs)
 		*SelectFlags = 0;
 	}
 
+	FreeRTOS_DeleteSocketSet(set);
+
 	return return_code;
 } /* end OS_SelectSingle_Impl */
 
@@ -245,6 +256,8 @@ int32 OS_SelectMultiple_Impl(OS_FdSet *ReadSet, OS_FdSet *WriteSet, int32 msecs)
 		{
 			OS_FdSet_ConvertOut_Impl(rd_set, ReadSet);
 		}
+
+		FreeRTOS_DeleteSocketSet(rd_set);
 	}
 
 	if (WriteSet != NULL)
@@ -257,8 +270,11 @@ int32 OS_SelectMultiple_Impl(OS_FdSet *ReadSet, OS_FdSet *WriteSet, int32 msecs)
 		{
 			OS_FdSet_ConvertOut_Impl(wr_set, ReadSet);
 		}
+
+		FreeRTOS_DeleteSocketSet(wr_set);
 	}
 
+	//TODO: Not sure about this method of resolving the differences between FreeRTOS_select() and select()
 	if(rd_return_code == OS_SUCCESS && wr_return_code == OS_SUCCESS)
 	{
 		return OS_SUCCESS;
@@ -268,6 +284,7 @@ int32 OS_SelectMultiple_Impl(OS_FdSet *ReadSet, OS_FdSet *WriteSet, int32 msecs)
 		return OS_ERROR;
 	}
 } /* end OS_SelectMultiple_Impl */
+
 #else
 
 /****************************************************************************************

@@ -113,8 +113,9 @@ stack repeating the checksum calculations. */
 performed, for example FreeRTOS_send() and FreeRTOS_recv().  The timeouts can be
 set per socket, using setsockopt().  If not set, the times below will be
 used as defaults. */
-#define ipconfigSOCK_DEFAULT_RECEIVE_BLOCK_TIME	( 5000 )
-#define	ipconfigSOCK_DEFAULT_SEND_BLOCK_TIME	( 5000 )
+//Setting these to 0 makes the network non-blocking
+#define ipconfigSOCK_DEFAULT_RECEIVE_BLOCK_TIME	( 0 )
+#define	ipconfigSOCK_DEFAULT_SEND_BLOCK_TIME	( 0 )
 
 /* Include support for LLMNR: Link-local Multicast Name Resolution
 (non-Microsoft) */

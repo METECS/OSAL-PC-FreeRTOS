@@ -114,7 +114,7 @@
  ** It should be turned off for targtets that do not have a network stack or
  ** device ( like the basic RAD750 vxWorks BSP )
  */
-#undef OS_INCLUDE_NETWORK
+#define OS_INCLUDE_NETWORK
 
 /* 
  ** This is the maximum number of open file descriptors allowed at a time

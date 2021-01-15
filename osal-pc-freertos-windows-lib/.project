@@ -55,9 +55,14 @@
 			<locationURI>FREERTOS_ROOT/FreeRTOS/Source</locationURI>
 		</link>
 		<link>
-			<name>src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/WinPCap-SDK</name>
+			<name>src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/Npcap</name>
 			<type>2</type>
-			<locationURI>FREERTOS_ROOT/FreeRTOS-Labs/Demo/FreeRTOS_Plus_TCP_and_FAT_Windows_Simulator/WinPCap</locationURI>
+			<locationURI>NPCAP_ROOT</locationURI>
+		</link>
+		<link>
+			<name>src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/npcap-sdk</name>
+			<type>2</type>
+			<location>C:/Users/ccsulli2/Documents/npcap-sdk-1.06</location>
 		</link>
 	</linkedResources>
 	<filteredResources>
@@ -143,23 +148,54 @@
 			</matcher>
 		</filter>
 		<filter>
-			<id>0</id>
-			<name>src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/WinPCap-SDK</name>
-			<type>6</type>
+			<id>1609954382260</id>
+			<name>src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/Npcap</name>
+			<type>9</type>
 			<matcher>
 				<id>org.eclipse.ui.ide.multiFilter</id>
-				<arguments>1.0-name-matches-false-false-arch.c</arguments>
+				<arguments>1.0-name-matches-false-false-Include</arguments>
+			</matcher>
+		</filter>
+		<filter>
+			<id>1609954382281</id>
+			<name>src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/Npcap</name>
+			<type>9</type>
+			<matcher>
+				<id>org.eclipse.ui.ide.multiFilter</id>
+				<arguments>1.0-name-matches-false-false-Lib</arguments>
+			</matcher>
+		</filter>
+		<filter>
+			<id>0</id>
+			<name>src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/npcap-sdk</name>
+			<type>10</type>
+			<matcher>
+				<id>org.eclipse.ui.ide.multiFilter</id>
+				<arguments>1.0-name-matches-false-false-Examples-pcap</arguments>
+			</matcher>
+		</filter>
+		<filter>
+			<id>0</id>
+			<name>src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/npcap-sdk</name>
+			<type>10</type>
+			<matcher>
+				<id>org.eclipse.ui.ide.multiFilter</id>
+				<arguments>1.0-name-matches-false-false-Examples-remote</arguments>
 			</matcher>
 		</filter>
 	</filteredResources>
 	<variableList>
 		<variable>
 			<name>FREERTOS_ROOT</name>
-			<value>file:/C:/Users/ccsulli2/Documents/FreeRTOS</value>
+			<value>file:/C:/Users/sully/Documents/METECS_OSAL/FreeRTOS</value>
+		</variable>
+		<variable>
+			<name>NPCAP_ROOT</name>
+			<value>file:/C:/Users/sully/Documents/METECS_OSAL/npcap-sdk-1.06</value>
 		</variable>
 		<variable>
 			<name>OSAL_ROOT</name>
-			<value>file:/C:/Users/ccsulli2/Documents/osal</value>
+			<value>file:/C:/Users/sully/Documents/METECS_OSAL/osal</value>
 		</variable>
 	</variableList>
 </projectDescription>

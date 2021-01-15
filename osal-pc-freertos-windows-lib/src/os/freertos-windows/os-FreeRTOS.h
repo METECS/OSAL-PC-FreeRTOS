@@ -40,6 +40,8 @@
 
 #ifdef OS_INCLUDE_NETWORK
 #include "FreeRTOS_sockets.h"
+#include "FreeRTOS_IP.h"
+#include "FreeRTOS_Stream_Buffer.h"
 #endif
 
 /****************************************************************************************
@@ -54,13 +56,13 @@ typedef struct
 {
 	uint32    		ClockAccuracyNsec;
 	TaskHandle_t	IdleTaskId;
+	bool			initialized;
 } FreeRTOS_GlobalVars_t;
 
 #ifdef OS_INCLUDE_NETWORK
 typedef struct
 {
 	Socket_t socket;
-    bool selectable;
 } OS_FreeRTOS_socket_entry_t;
 #endif
 
@@ -90,4 +92,6 @@ int32 OS_FreeRTOS_DirAPI_Impl_Init(void);
 int32 OS_FreeRTOS_FileSysAPI_Impl_Init(void);
 
 int32 OS_GetVolumeType(const char *VirtualPath);
+void  OS_UsecsToTicks(uint32 usecs, TickType_t *ticks);
+
 

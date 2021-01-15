@@ -43,7 +43,6 @@ TickType_t getElapsedMicroseconds();
  INTERNAL FUNCTION PROTOTYPES
  ****************************************************************************************/
 
-void  OS_UsecsToTicks(uint32 usecs, TickType_t *ticks);
 int32 OS_TimerGetIdByHostId(uint32 *timer_id, TimerHandle_t host_timer_id);
 
 /****************************************************************************************

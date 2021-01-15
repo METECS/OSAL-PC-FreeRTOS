@@ -20,10 +20,10 @@
 				</extensions>
 			</storageModule>
 			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-				<configuration artifactExtension="a" artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.staticLib" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.staticLib,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.debug" cleanCommand="rm -rf" description="" id="cdt.managedbuild.config.gnu.mingw.lib.debug.579450231" name="Debug" optionalBuildProperties="org.eclipse.cdt.docker.launcher.containerbuild.property.selectedvolumes=,org.eclipse.cdt.docker.launcher.containerbuild.property.volumes=" parent="cdt.managedbuild.config.gnu.mingw.lib.debug">
+				<configuration artifactExtension="a" artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.staticLib" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.staticLib,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.debug" cleanCommand="rm -rf" description="" errorParsers="org.eclipse.cdt.core.GASErrorParser;org.eclipse.cdt.core.GCCErrorParser" id="cdt.managedbuild.config.gnu.mingw.lib.debug.579450231" name="Debug" optionalBuildProperties="org.eclipse.cdt.docker.launcher.containerbuild.property.enablement=null,org.eclipse.cdt.docker.launcher.containerbuild.property.selectedvolumes=,org.eclipse.cdt.docker.launcher.containerbuild.property.volumes=,org.eclipse.cdt.docker.launcher.containerbuild.property.image=null,org.eclipse.cdt.docker.launcher.containerbuild.property.connection=null" parent="cdt.managedbuild.config.gnu.mingw.lib.debug">
 					<folderInfo id="cdt.managedbuild.config.gnu.mingw.lib.debug.579450231." name="/" resourcePath="">
 						<toolChain id="cdt.managedbuild.toolchain.gnu.mingw.lib.debug.245655227" name="MinGW GCC" superClass="cdt.managedbuild.toolchain.gnu.mingw.lib.debug">
-							<targetPlatform id="cdt.managedbuild.target.gnu.platform.mingw.lib.debug.258333442" name="Debug Platform" superClass="cdt.managedbuild.target.gnu.platform.mingw.lib.debug"/>
+							<targetPlatform binaryParser="org.eclipse.cdt.core.PE64" id="cdt.managedbuild.target.gnu.platform.mingw.lib.debug.258333442" name="Debug Platform" superClass="cdt.managedbuild.target.gnu.platform.mingw.lib.debug"/>
 							<builder buildPath="${workspace_loc:/osal-pc-freertos-windows}/Debug" id="cdt.managedbuild.tool.gnu.builder.mingw.base.700161786" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="CDT Internal Builder" superClass="cdt.managedbuild.tool.gnu.builder.mingw.base"/>
 							<tool id="cdt.managedbuild.tool.gnu.assembler.mingw.lib.debug.520863174" name="GCC Assembler" superClass="cdt.managedbuild.tool.gnu.assembler.mingw.lib.debug">
 								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.2093462713" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
@@ -41,8 +41,6 @@
 									<listOptionValue builtIn="false" value="_HAVE_STDINT_"/>
 									<listOptionValue builtIn="false" value="WIN32"/>
 									<listOptionValue builtIn="false" value="OSAL_OMIT_DEPRECATED"/>
-									<listOptionValue builtIn="false" value="_USING_RTEMS_INCLUDES_"/>
-									<listOptionValue builtIn="false" value="RTEMS_DEPRECATED_TYPES"/>
 								</option>
 								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="gnu.c.compiler.option.include.paths.262138033" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/inc}&quot;"/>
@@ -55,18 +53,41 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-FAT/portable/common}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-TCP/include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/Compiler/GCC}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/WinPCap-SDK}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/Npcap/Include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/ut_assert/inc}&quot;"/>
 								</option>
 								<option id="gnu.c.compiler.option.misc.other.1166448137" name="Other flags" superClass="gnu.c.compiler.option.misc.other" useByScannerDiscovery="false" value="-c -fmessage-length=0 -m32" valueType="string"/>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.276370814" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>
-							<tool id="cdt.managedbuild.tool.gnu.c.linker.mingw.base.888772907" name="MinGW C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.mingw.base"/>
-							<tool id="cdt.managedbuild.tool.gnu.cpp.linker.mingw.base.2133152456" name="MinGW C++ Linker" superClass="cdt.managedbuild.tool.gnu.cpp.linker.mingw.base"/>
+							<tool id="cdt.managedbuild.tool.gnu.c.linker.mingw.base.888772907" name="MinGW C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.mingw.base">
+								<option defaultValue="true" id="gnu.c.link.option.shared.781775558" name="Shared (-shared)" superClass="gnu.c.link.option.shared" useByScannerDiscovery="false" valueType="boolean"/>
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="true" id="gnu.c.link.option.paths.1228051062" name="Library search path (-L)" superClass="gnu.c.link.option.paths" useByScannerDiscovery="false" valueType="libPaths"/>
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="gnu.c.link.option.libs.1955763105" name="Libraries (-l)" superClass="gnu.c.link.option.libs" useByScannerDiscovery="false" valueType="libs">
+									<listOptionValue builtIn="false" value="wpcap"/>
+									<listOptionValue builtIn="false" value="Packet"/>
+								</option>
+								<inputType id="cdt.managedbuild.tool.gnu.c.linker.input.441676875" superClass="cdt.managedbuild.tool.gnu.c.linker.input">
+									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
+									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
+								</inputType>
+							</tool>
+							<tool id="cdt.managedbuild.tool.gnu.cpp.linker.mingw.base.2133152456" name="MinGW C++ Linker" superClass="cdt.managedbuild.tool.gnu.cpp.linker.mingw.base">
+								<option defaultValue="true" id="gnu.cpp.link.option.shared.1950575574" name="Shared (-shared)" superClass="gnu.cpp.link.option.shared" valueType="boolean"/>
+							</tool>
+						</toolChain>
+					</folderInfo>
+					<folderInfo id="cdt.managedbuild.config.gnu.mingw.lib.debug.579450231.1129006609" name="/" resourcePath="src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/Npcap">
+						<toolChain id="cdt.managedbuild.toolchain.gnu.mingw.lib.debug.869763874" name="MinGW GCC" superClass="cdt.managedbuild.toolchain.gnu.mingw.lib.debug" unusedChildren="">
+							<tool id="cdt.managedbuild.tool.gnu.assembler.mingw.lib.debug.1516851368" name="GCC Assembler" superClass="cdt.managedbuild.tool.gnu.assembler.mingw.lib.debug.520863174"/>
+							<tool id="cdt.managedbuild.tool.gnu.archiver.mingw.lib.debug.1778698603" name="GCC Archiver" superClass="cdt.managedbuild.tool.gnu.archiver.mingw.lib.debug.1571403618"/>
+							<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.lib.debug.125402404" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.lib.debug.175320991"/>
+							<tool id="cdt.managedbuild.tool.gnu.c.compiler.mingw.lib.debug.1063964260" name="GCC C Compiler" superClass="cdt.managedbuild.tool.gnu.c.compiler.mingw.lib.debug.891559804"/>
+							<tool id="cdt.managedbuild.tool.gnu.c.linker.mingw.base.1461799033" name="MinGW C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.mingw.base.888772907"/>
+							<tool id="cdt.managedbuild.tool.gnu.cpp.linker.mingw.base.1392609577" name="MinGW C++ Linker" superClass="cdt.managedbuild.tool.gnu.cpp.linker.mingw.base.2133152456"/>
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="share|shared|ut_assert/src|bsp|src" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="bsp|ut_assert/src|src" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name=""/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
@@ -117,9 +138,8 @@
 									<listOptionValue builtIn="false" value="RTEMS_DEPRECATED_TYPES"/>
 								</option>
 								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="gnu.c.compiler.option.include.paths.1241953691" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/ut_assert/inc}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/shared}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/inc}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/shared}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/bsp/pc-freertos-windows/config}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS_Source/portable/MSVC-MingW}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows}&quot;"/>
@@ -128,7 +148,10 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-FAT/portable/common}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-TCP/include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/Compiler/GCC}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/WinPCap-SDK}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/npcap-sdk}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/npcap-sdk/Include}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/npcap-sdk/Lib}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/ut_assert/inc}&quot;"/>
 								</option>
 								<option id="gnu.c.compiler.option.misc.other.1275414182" name="Other flags" superClass="gnu.c.compiler.option.misc.other" useByScannerDiscovery="false" value="-c -fmessage-length=0 -m32" valueType="string"/>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.960199213" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
