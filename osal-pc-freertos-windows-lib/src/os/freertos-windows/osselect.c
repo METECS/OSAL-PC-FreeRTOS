@@ -43,7 +43,28 @@
  *
  * This is shared by all OSAL entities that perform low-level I/O.
  */
-OS_FreeRTOS_socket_entry_t OS_impl_socket_table[OS_MAX_NUM_OPEN_FILES];
+OS_FreeRTOS_filehandle_entry_t OS_impl_filehandle_table[OS_MAX_NUM_OPEN_FILES];
+
+/****************************************************************************************
+ HELPER FUNCTION
+ ***************************************************************************************/
+void UpdateConnectionStatus(uint32);
+void UpdateConnectionStatus(uint32 stream_id)
+{
+	bool isConnected = FreeRTOS_issocketconnected(OS_impl_filehandle_table[stream_id].fd);
+	if(isConnected)
+	{
+		OS_impl_filehandle_table[stream_id].disconnected = false;
+	}
+	else
+	{
+		if(OS_impl_filehandle_table[stream_id].connected)
+		{
+			OS_impl_filehandle_table[stream_id].disconnected = true;
+		}
+	}
+	OS_impl_filehandle_table[stream_id].connected = isConnected;
+}
 
 /*----------------------------------------------------------------
  * Function: OS_FdSet_ConvertIn_Impl
@@ -71,7 +92,7 @@ static void OS_FdSet_ConvertIn_Impl(SocketSet_t *os_set, OS_FdSet *OSAL_set, Bas
          if (objids & 0x01)
          {
             id = (offset * 8) + bit;
-            osfd = OS_impl_socket_table[id].socket;
+            osfd = OS_impl_filehandle_table[id].fd;
             if (osfd != NULL)
             {
                FreeRTOS_FD_SET(osfd, os_set, xSelectBits);
@@ -94,7 +115,7 @@ static void OS_FdSet_ConvertIn_Impl(SocketSet_t *os_set, OS_FdSet *OSAL_set, Bas
  *          This actually un-sets any bits in the "Input" parameter
  *          which are also set in the "output" parameter.
  *-----------------------------------------------------------------*/
-static void OS_FdSet_ConvertOut_Impl(SocketSet_t *output, OS_FdSet *Input)
+static void OS_FdSet_ConvertOut_Impl(SocketSet_t *output, OS_FdSet *Input, BaseType_t xSelectBits, bool *disconn)
 {
    uint32 offset;
    uint32 bit;
@@ -111,10 +132,25 @@ static void OS_FdSet_ConvertOut_Impl(SocketSet_t *output, OS_FdSet *Input)
          if (objids & 0x01)
          {
             id = (offset * 8) + bit;
-            osfd = OS_impl_socket_table[id].socket;
-            if (osfd == NULL || !FreeRTOS_FD_ISSET(osfd, output))
+            osfd = OS_impl_filehandle_table[id].fd;
+            if(osfd == NULL)
             {
-               Input->object_ids[offset] &= ~(1 << bit);
+        		Input->object_ids[offset] &= ~(1 << bit);
+            }
+            else
+            {
+				UpdateConnectionStatus(id);
+				//Disconnected sockets should always be selected. They either have an event pending or they need to signal that they are done
+				if(OS_impl_filehandle_table[id].disconnected)
+				{
+					*disconn = true;
+				}
+				else if(!FreeRTOS_FD_ISSET(osfd, output))
+				{
+					Input->object_ids[offset] &= ~(1 << bit);
+				}
+
+                FreeRTOS_FD_CLR(osfd, output, xSelectBits);
             }
          }
          ++bit;
@@ -184,52 +220,68 @@ int32 OS_SelectSingle_Impl(uint32 stream_id, uint32 *SelectFlags, int32 msecs)
 {
 	int32 return_code;
 	SocketSet_t set;
-	BaseType_t xSelectBits;
+	BaseType_t xSelectBits = 0;
+	BaseType_t returnedBits;
 
-	if(*SelectFlags & OS_STREAM_STATE_READABLE)
+	if (*SelectFlags != 0)
 	{
-		xSelectBits = eSELECT_READ;
-	}
-	else if(*SelectFlags & OS_STREAM_STATE_WRITABLE)
-	{
-		xSelectBits = eSELECT_WRITE;
+		set = FreeRTOS_CreateSocketSet();
+
+		if(*SelectFlags & OS_STREAM_STATE_READABLE)
+		{
+			xSelectBits |= eSELECT_READ;
+		}
+		if(*SelectFlags & OS_STREAM_STATE_WRITABLE)
+		{
+			xSelectBits |= eSELECT_WRITE;
+		}
+
+		FreeRTOS_FD_SET(OS_impl_filehandle_table[stream_id].fd, set, xSelectBits);
+
+		return_code = OS_DoSelect(set, msecs);
+
+		UpdateConnectionStatus(stream_id);
+
+		if (return_code == OS_SUCCESS)
+		{
+			returnedBits = FreeRTOS_FD_ISSET(OS_impl_filehandle_table[stream_id].fd, set);
+			if(!(returnedBits & eSELECT_READ))
+			{
+				*SelectFlags &= ~OS_STREAM_STATE_READABLE;
+			}
+			if(!(returnedBits & eSELECT_WRITE))
+			{
+				*SelectFlags &= ~OS_STREAM_STATE_WRITABLE;
+			}
+		}
+		else if (return_code == OS_ERROR_TIMEOUT && OS_impl_filehandle_table[stream_id].disconnected)
+		{
+			//This will be a problem if OS_PEND is used!
+			return_code = OS_SUCCESS;
+			if(!(xSelectBits & eSELECT_READ))
+			{
+				*SelectFlags &= ~OS_STREAM_STATE_READABLE;
+			}
+			if(!(xSelectBits & eSELECT_WRITE))
+			{
+				*SelectFlags &= ~OS_STREAM_STATE_WRITABLE;
+			}
+		}
+		else
+		{
+			*SelectFlags = 0;
+		}
+
+		FreeRTOS_FD_CLR(OS_impl_filehandle_table[stream_id].fd, set, xSelectBits);
 	}
 	else
 	{
 		/* Nothing to check for, return immediately. */
-		return OS_SUCCESS;
+		return_code = OS_SUCCESS;
 	}
-
-	set = FreeRTOS_CreateSocketSet();
-
-	FreeRTOS_FD_SET(OS_impl_socket_table[stream_id].socket, set, xSelectBits);
-
-	return_code = OS_DoSelect(set, msecs);
-
-	if (return_code == OS_SUCCESS)
-	{
-		 if (!FreeRTOS_FD_ISSET(OS_impl_socket_table[stream_id].socket, set))
-		 {
-			if(*SelectFlags & OS_STREAM_STATE_READABLE)
-			{
-				*SelectFlags &= ~OS_STREAM_STATE_READABLE;
-			}
-			else if(*SelectFlags & OS_STREAM_STATE_WRITABLE)
-			{
-				*SelectFlags &= ~OS_STREAM_STATE_WRITABLE;
-			}
-		 }
-	}
-	else
-	{
-		*SelectFlags = 0;
-	}
-
-	FreeRTOS_DeleteSocketSet(set);
 
 	return return_code;
 } /* end OS_SelectSingle_Impl */
-
 
 /*----------------------------------------------------------------
  *
@@ -241,48 +293,42 @@ int32 OS_SelectSingle_Impl(uint32 stream_id, uint32 *SelectFlags, int32 msecs)
  *-----------------------------------------------------------------*/
 int32 OS_SelectMultiple_Impl(OS_FdSet *ReadSet, OS_FdSet *WriteSet, int32 msecs)
 {
-	SocketSet_t rd_set;
-	SocketSet_t wr_set;
-	int32 rd_return_code = OS_SUCCESS;
-	int32 wr_return_code = OS_SUCCESS;
+	SocketSet_t set;
+	int32 return_code = OS_SUCCESS;
+	bool wr_disconn = false;
+	bool rd_disconn = false;
+
+	set = FreeRTOS_CreateSocketSet();
 
 	if (ReadSet != NULL)
 	{
-		rd_return_code = OS_ERROR;
-		rd_set = FreeRTOS_CreateSocketSet();
-		OS_FdSet_ConvertIn_Impl(rd_set, ReadSet, eSELECT_READ);
-		rd_return_code = OS_DoSelect(rd_set, msecs);
-		if(rd_return_code == OS_SUCCESS)
-		{
-			OS_FdSet_ConvertOut_Impl(rd_set, ReadSet);
-		}
-
-		FreeRTOS_DeleteSocketSet(rd_set);
+		OS_FdSet_ConvertIn_Impl(set, ReadSet, eSELECT_READ);
 	}
-
 	if (WriteSet != NULL)
 	{
-		wr_return_code = OS_ERROR;
-		wr_set = FreeRTOS_CreateSocketSet();
-		OS_FdSet_ConvertIn_Impl(wr_set, WriteSet, eSELECT_WRITE);
-		wr_return_code = OS_DoSelect(wr_set, msecs);
-		if(wr_return_code == OS_SUCCESS)
+		OS_FdSet_ConvertIn_Impl(set, WriteSet, eSELECT_WRITE);
+	}
+
+	return_code = OS_DoSelect(set, msecs);
+
+	if(return_code != OS_ERROR)
+	{
+		if (ReadSet != NULL)
 		{
-			OS_FdSet_ConvertOut_Impl(wr_set, ReadSet);
+			OS_FdSet_ConvertOut_Impl(set, ReadSet, eSELECT_READ, &rd_disconn);
+		}
+		if (WriteSet != NULL)
+		{
+			OS_FdSet_ConvertOut_Impl(set, WriteSet, eSELECT_WRITE, &wr_disconn);
 		}
 
-		FreeRTOS_DeleteSocketSet(wr_set);
+		if(rd_disconn || wr_disconn)
+		{
+			return_code = OS_SUCCESS;
+		}
 	}
 
-	//TODO: Not sure about this method of resolving the differences between FreeRTOS_select() and select()
-	if(rd_return_code == OS_SUCCESS && wr_return_code == OS_SUCCESS)
-	{
-		return OS_SUCCESS;
-	}
-	else
-	{
-		return OS_ERROR;
-	}
+	return return_code;
 } /* end OS_SelectMultiple_Impl */
 
 #else

@@ -281,21 +281,6 @@ int32 OS_API_Impl_Init(uint32 idtype)
    }
 	while(0);
 
-	//TODO: Determine if this is the correct way to initialize these.
-	if(FreeRTOS_GlobalVars.initialized == 0)
-	{
-		if (return_code == OS_SUCCESS)
-		{
-			return_code = OS_FreeRTOS_NetworkAPI_Impl_Init();
-		}
-
-		if (return_code == OS_SUCCESS)
-		{
-			return_code = OS_FreeRTOS_SocketAPI_Impl_Init();
-		}
-		FreeRTOS_GlobalVars.initialized = 1;
-	}
-
 #ifndef configFREERTOS_RUN_AS_SIM
 #error configFREERTOS_RUN_AS_SIM must be set to 0 or 1 in FreeRTOSConfig.h
 #endif

@@ -28,10 +28,7 @@
 /****************************************************************************************
  INCLUDE FILES
  ***************************************************************************************/
-
 #include "os-FreeRTOS.h"
-#include "FreeRTOS_IP.h"
-#include "freertos_logging.h"
 
 #ifdef OS_INCLUDE_NETWORK
 
@@ -49,39 +46,18 @@ typedef union
  ***************************************************************************************/
 
 /*
- * The socket table.
- *
+ * The file handle table.
  * This is shared by all OSAL entities that perform low-level I/O.
  */
-OS_FreeRTOS_socket_entry_t OS_impl_socket_table[OS_MAX_NUM_OPEN_FILES];
+OS_FreeRTOS_filehandle_entry_t OS_impl_filehandle_table[OS_MAX_NUM_OPEN_FILES];
 
 /****************************************************************************************
  EXTERNAL DECLARATIONS
  ***************************************************************************************/
 
-void prvMiscInitialisation( void );
-
-extern const uint8_t ucIPAddress[ 4 ];
-extern const uint8_t ucNetMask[ 4 ];
-extern const uint8_t ucGatewayAddress[ 4 ];
-extern const uint8_t ucDNSServerAddress[ 4 ];
-extern const uint8_t ucMACAddress[ 6 ];
-
 /****************************************************************************************
  Network API
  ***************************************************************************************/
-
-/*----------------------------------------------------------------
- *
- * Function: OS_FreeRTOS_NetworkAPI_Impl_Init
- *
- *  Purpose: Local helper routine, not part of OSAL API.
- *
- *-----------------------------------------------------------------*/
-int32 OS_FreeRTOS_NetworkAPI_Impl_Init(void)
-{
-    return OS_SUCCESS;
-} /* end OS_FreeRTOS_NetworkAPI_Impl_Init */
 
 /*----------------------------------------------------------------
  *
@@ -93,55 +69,25 @@ int32 OS_FreeRTOS_NetworkAPI_Impl_Init(void)
  *-----------------------------------------------------------------*/
 int32 OS_NetworkGetHostName_Impl(char *host_name, uint32 name_len)
 {
-    int32 return_code;
-
-    //TODO: gethostname not a thing in FreeRTOS. Must resolve.
-//    if ( gethostname(host_name, name_len) < 0 )
-//    {
-//        return_code = OS_ERROR;
-//    }
-//    else
-//    {
-//        /*
-//         * posix does not say that the name is always
-//         * null terminated, so its worthwhile to ensure it
-//         */
-//        host_name[name_len - 1] = 0;
-        return_code = OS_SUCCESS;
-//    }
-
-    return(return_code);
+    return OS_ERR_NOT_IMPLEMENTED;
 } /* end OS_NetworkGetHostName_Impl */
+
+/*----------------------------------------------------------------
+ *
+ * Function: OS_NetworkGetID_Impl
+ *
+ *  Purpose: Implemented per internal OSAL API
+ *           See prototype in os-impl.h for argument/return detail
+ *
+ *-----------------------------------------------------------------*/
+int32 OS_NetworkGetID_Impl          (int32 *IdBuf)
+{
+    return OS_ERR_NOT_IMPLEMENTED;
+} /* end OS_NetworkGetID_Impl */
 
 /****************************************************************************************
  Socket API
  ***************************************************************************************/
-
-/*----------------------------------------------------------------
- *
- * Function: OS_FreeRTOS_SocketAPI_Impl_Init
- *
- *  Purpose: Local helper routine, not part of OSAL API.
- *
- *-----------------------------------------------------------------*/
-int32 OS_FreeRTOS_SocketAPI_Impl_Init(void)
-{
-	memset(OS_impl_socket_table, 0, sizeof(OS_impl_socket_table));
-
-	//TODO: Unsure of calling prvMiscInitialisation and FreeRTOS_IPInit here.
-	prvMiscInitialisation();
-
-	/* Initialise the network interface.
-	  ***NOTE*** Tasks that use the network are created in the network event hook
-	  when the network is connected and ready for use (see the definition of
-	  vApplicationIPNetworkEventHook() below).  The address values passed in here
-	  are used if ipconfigUSE_DHCP is set to 0, or if ipconfigUSE_DHCP is set to 1
-	  but a DHCP server cannot be	contacted.
-	 */
-	FreeRTOS_IPInit( ucIPAddress, ucNetMask, ucGatewayAddress, ucDNSServerAddress, ucMACAddress );
-
-    return OS_SUCCESS;
-} /* end OS_FreeRTOS_SocketAPI_Impl_Init */
 
 /*----------------------------------------------------------------
  *
@@ -156,7 +102,6 @@ int32 OS_SocketOpen_Impl(uint32 sock_id)
 	BaseType_t os_domain;
 	BaseType_t os_type;
 	BaseType_t os_proto;
-	BaseType_t os_flags;
 
 	os_proto = 0;
 
@@ -202,20 +147,14 @@ int32 OS_SocketOpen_Impl(uint32 sock_id)
 	  break;
 	}
 
-	OS_impl_socket_table[sock_id].socket = FreeRTOS_socket(os_domain, os_type, os_proto);
-	if (OS_impl_socket_table[sock_id].socket == FREERTOS_INVALID_SOCKET)
+	OS_impl_filehandle_table[sock_id].fd = FreeRTOS_socket(os_domain, os_type, os_proto);
+	if (OS_impl_filehandle_table[sock_id].fd == FREERTOS_INVALID_SOCKET)
 	{
 	   //Insufficient FreeRTOS heap memory
-		OS_impl_socket_table[sock_id].socket = NULL;
+		OS_impl_filehandle_table[sock_id].fd = NULL;
 		return OS_ERROR;
 	}
-
-	/*
-	* Setting the FREERTOS_SO_REUSE_LISTEN_SOCKET flag helps during debugging when there might be frequent
-	* code restarts.  However if setting the option fails then it is not worth bailing out over.
-	*/
-	os_flags = 1;
-	FreeRTOS_setsockopt(OS_impl_socket_table[sock_id].socket, 0, FREERTOS_SO_REUSE_LISTEN_SOCKET, &os_flags, sizeof(os_flags));
+	OS_impl_filehandle_table[sock_id].selectable = true;
 
 	return OS_SUCCESS;
 } /* end OS_SocketOpen_Impl */
@@ -251,7 +190,7 @@ int32 OS_SocketBind_Impl(uint32 sock_id, const OS_SockAddr_t *Addr)
       return OS_ERR_BAD_ADDRESS;
    }
 
-   os_result = FreeRTOS_bind(OS_impl_socket_table[sock_id].socket, sa, addrlen);
+   os_result = FreeRTOS_bind(OS_impl_filehandle_table[sock_id].fd, sa, addrlen);
    if (os_result < 0)
    {
       return OS_ERROR;
@@ -260,7 +199,7 @@ int32 OS_SocketBind_Impl(uint32 sock_id, const OS_SockAddr_t *Addr)
    /* Start listening on the socket (implied for stream sockets) */
    if (OS_stream_table[sock_id].socket_type == OS_SocketType_STREAM)
    {
-      os_result = FreeRTOS_listen(OS_impl_socket_table[sock_id].socket, 10);
+      os_result = FreeRTOS_listen(OS_impl_filehandle_table[sock_id].fd, 10);
       if (os_result < 0)
       {
          return OS_ERROR;
@@ -282,7 +221,6 @@ int32 OS_SocketConnect_Impl(uint32 sock_id, const OS_SockAddr_t *Addr, int32 tim
    int32 return_code;
    int os_status;
    socklen_t slen;
-   uint32 operation;
    struct freertos_sockaddr *sa;
 
    sa = (struct freertos_sockaddr *)Addr->AddrData;
@@ -303,28 +241,35 @@ int32 OS_SocketConnect_Impl(uint32 sock_id, const OS_SockAddr_t *Addr, int32 tim
    else
    {
        return_code = OS_SUCCESS;
-       os_status = FreeRTOS_connect(OS_impl_socket_table[sock_id].socket, sa, slen);
+       os_status = FreeRTOS_connect(OS_impl_filehandle_table[sock_id].fd, sa, slen);
        if (os_status < 0)
        {
-           if (errno != -pdFREERTOS_ERRNO_EINPROGRESS)
+           if (os_status != -pdFREERTOS_ERRNO_EINPROGRESS && os_status != -pdFREERTOS_ERRNO_EWOULDBLOCK)
            {
                return_code = OS_ERROR;
            }
            else
            {
-               operation = OS_STREAM_STATE_WRITABLE;
-               return_code = OS_SelectSingle_Impl(sock_id, &operation, timeout);
-               if (return_code == OS_SUCCESS)
-               {
-                   if ((operation & OS_STREAM_STATE_WRITABLE) == 0)
-                   {
-                       return_code = OS_ERROR_TIMEOUT;
-                   }
-                   else
-                   {
-					   return_code = OS_ERROR;
-                   }
-               }
+				//Checking if it is writable does not guarantee that the 3-Way handshake has been completed
+				//Check the connection every 1 millisecond to see when it has been connected
+				uint32 elapsedTime = 0;
+				TickType_t ticks = OS_Milli2Ticks(1);
+				while(elapsedTime<=timeout)
+				{
+					if(FreeRTOS_issocketconnected(OS_impl_filehandle_table[sock_id].fd))
+					{
+					OS_impl_filehandle_table[sock_id].connected = true;
+					return_code = OS_SUCCESS;
+					break;
+					}
+
+					vTaskDelay(ticks);
+					elapsedTime++;
+				}
+				if(elapsedTime>timeout)
+				{
+					return_code = OS_ERROR_TIMEOUT;
+				}
            }
        }
    }
@@ -347,7 +292,6 @@ int32 OS_SocketAccept_Impl(uint32 sock_id, uint32 connsock_id, OS_SockAddr_t *Ad
 
    operation = OS_STREAM_STATE_READABLE;
    return_code = OS_SelectSingle_Impl(sock_id, &operation, timeout);
-
    if (return_code == OS_SUCCESS)
    {
       if ((operation & OS_STREAM_STATE_READABLE) == 0)
@@ -357,14 +301,16 @@ int32 OS_SocketAccept_Impl(uint32 sock_id, uint32 connsock_id, OS_SockAddr_t *Ad
       else
       {
          addrlen = Addr->ActualLength;
-         OS_impl_socket_table[connsock_id].socket = FreeRTOS_accept(OS_impl_socket_table[sock_id].socket, (struct freertos_sockaddr *)Addr->AddrData, &addrlen);
-         if (OS_impl_socket_table[connsock_id].socket == NULL || OS_impl_socket_table[connsock_id].socket == FREERTOS_INVALID_SOCKET )
+         OS_impl_filehandle_table[connsock_id].fd = FreeRTOS_accept(OS_impl_filehandle_table[sock_id].fd, (struct freertos_sockaddr *)Addr->AddrData, &addrlen);
+         if (OS_impl_filehandle_table[connsock_id].fd == NULL || OS_impl_filehandle_table[connsock_id].fd == FREERTOS_INVALID_SOCKET )
          {
             return_code = OS_ERROR;
          }
          else
          {
              Addr->ActualLength = addrlen;
+             OS_impl_filehandle_table[connsock_id].selectable = true;
+             OS_impl_filehandle_table[connsock_id].connected = true;
          }
       }
    }
@@ -396,6 +342,10 @@ int32 OS_SocketRecvFrom_Impl(uint32 sock_id, void *buffer, uint32 buflen, OS_Soc
    else
    {
       addrlen = OS_SOCKADDR_MAX_LEN;
+      //In FreeRTOS, sin_family doesn't seem to be copied in FreeRTOS_recvfrom.
+      //Init address to ensure it is included.
+      //If other families are included in the future(IPV6), this will need to change.
+      OS_SocketAddrInit_Impl(RemoteAddr, OS_SocketDomain_INET);
       sa = (struct freertos_sockaddr *)RemoteAddr->AddrData;
    }
 
@@ -409,7 +359,7 @@ int32 OS_SocketRecvFrom_Impl(uint32 sock_id, void *buffer, uint32 buflen, OS_Soc
       }
       else
       {
-         os_result = FreeRTOS_recvfrom(OS_impl_socket_table[sock_id].socket, buffer, buflen, 0, sa, &addrlen);
+         os_result = FreeRTOS_recvfrom(OS_impl_filehandle_table[sock_id].fd, buffer, buflen, 0, sa, &addrlen);
          if (os_result < 0)
          {
 		   return_code = OS_ERROR;
@@ -459,7 +409,7 @@ int32 OS_SocketSendTo_Impl(uint32 sock_id, const void *buffer, uint32 buflen, co
       return OS_ERR_BAD_ADDRESS;
    }
 
-   os_result = FreeRTOS_sendto(OS_impl_socket_table[sock_id].socket, buffer, buflen, 0, sa, addrlen);
+   os_result = FreeRTOS_sendto(OS_impl_filehandle_table[sock_id].fd, buffer, buflen, 0, sa, addrlen);
    if (os_result == 0)
    {
       return OS_ERROR;
@@ -638,58 +588,5 @@ int32 OS_SocketAddrSetPort_Impl(OS_SockAddr_t *Addr, uint16 PortNum)
 
    return OS_SUCCESS;
 } /* end OS_SocketAddrSetPort_Impl */
-
-/*----------------------------------------------------------------
- *
- * Function: OS_NetworkGetID_Impl
- *
- *  Purpose: Implemented per internal OSAL API
- *           See prototype in os-impl.h for argument/return detail
- *
- *-----------------------------------------------------------------*/
-int32 OS_NetworkGetID_Impl          (int32 *IdBuf)
-{
-    /* FreeRTOS does not have the GetHostId call -
-     * it is deprecated in other OS's anyway and not a good idea to use it
-     */
-    return OS_ERR_NOT_IMPLEMENTED;
-} /* end OS_NetworkGetID_Impl */
-
-#else  /* OS_INCLUDE_NETWORK */
-
-/****************************************************************************************
- NOT IMPLEMENTED OPTION
- This block provides stubs in case this module is disabled by config
- ****************************************************************************************/
-
-/*
- * The "no-network" block includes the required API calls
- * that all return OS_ERR_NOT_IMPLEMENTED
- */
-#include "../portable/os-impl-no-network.c"
-
-/*----------------------------------------------------------------
- *
- * Function: OS_FreeRTOS_NetworkAPI_Impl_Init
- *
- *  Purpose: Local helper routine, not part of OSAL API.
- *
- *-----------------------------------------------------------------*/
-int32 OS_FreeRTOS_NetworkAPI_Impl_Init(void)
-{
-	return OS_SUCCESS;
-} /* end OS_FreeRTOS_NetworkAPI_Impl_Init */
-
-/*----------------------------------------------------------------
- *
- * Function: OS_FreeRTOS_SocketAPI_Impl_Init
- *
- *  Purpose: Local helper routine, not part of OSAL API.
- *
- *-----------------------------------------------------------------*/
-int32 OS_FreeRTOS_SocketAPI_Impl_Init(void)
-{
-	return OS_SUCCESS;
-} /* end OS_FreeRTOS_SocketAPI_Impl_Init */
 
 #endif

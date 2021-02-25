@@ -56,15 +56,16 @@ typedef struct
 {
 	uint32    		ClockAccuracyNsec;
 	TaskHandle_t	IdleTaskId;
-	bool			initialized;
 } FreeRTOS_GlobalVars_t;
 
-#ifdef OS_INCLUDE_NETWORK
 typedef struct
 {
-	Socket_t socket;
-} OS_FreeRTOS_socket_entry_t;
-#endif
+	int32 VolumeType;
+	void * fd;
+	bool selectable;
+	bool connected;
+	bool disconnected;
+} OS_FreeRTOS_filehandle_entry_t;
 
 /****************************************************************************************
  GLOBAL DATA
@@ -72,9 +73,7 @@ typedef struct
 
 extern FreeRTOS_GlobalVars_t FreeRTOS_GlobalVars;
 
-#ifdef OS_INCLUDE_NETWORK
-extern OS_FreeRTOS_socket_entry_t OS_impl_socket_table[OS_MAX_NUM_OPEN_FILES];
-#endif
+extern OS_FreeRTOS_filehandle_entry_t OS_impl_filehandle_table[OS_MAX_NUM_OPEN_FILES];
 
 /****************************************************************************************
  FreeRTOS IMPLEMENTATION FUNCTION PROTOTYPES

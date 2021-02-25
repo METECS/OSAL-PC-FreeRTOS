@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <time.h>
 
+#include "os-FreeRTOS.h"
 #include <FreeRTOS.h>
 #include "task.h"
 #include "FreeRTOS_IP.h"
@@ -15,8 +16,10 @@
 #include "common_types.h"
 
 /* Define a name that will be used for LLMNR and NBNS searches. */
-#define mainHOST_NAME				"RTOSDemo"
-#define mainDEVICE_NICK_NAME		"windows_demo"
+#define mainHOST_NAME				"OSAL_main"
+#define mainDEVICE_NICK_NAME		"windows_OSAL_main"
+
+void Run_Test(void);
 
 /****************************************************************************************
  INTERNAL FUNCTION
@@ -72,15 +75,6 @@ void vApplicationIPNetworkEventHook(eIPCallbackEvent_t eNetworkEvent) {
 
 	/* If the network has just come up...*/
 	if (eNetworkEvent == eNetworkUp) {
-		/* Create the tasks that use the IP stack if they have not already been
-		 created. */
-		if (xTasksAlreadyCreated == pdFALSE)
-		{
-			/* Create any tasks that depend on the network */
-			//TODO: Should there be a task initiated here?
-			xTasksAlreadyCreated = pdTRUE;
-		}
-
 		/* Print out the network configuration, which may have come from a DHCP
 		 server. */
 		FreeRTOS_GetAddressConfiguration(&ulIPAddress, &ulNetMask,
@@ -96,6 +90,23 @@ void vApplicationIPNetworkEventHook(eIPCallbackEvent_t eNetworkEvent) {
 
 		FreeRTOS_inet_ntoa(ulDNSServerAddress, cBuffer);
 		FreeRTOS_printf(( "DNS Server Address: %s\r\n\r\n\r\n", cBuffer ));
+
+		/* Create the tasks that use the IP stack if they have not already been
+		 created. */
+		if (xTasksAlreadyCreated == pdFALSE)
+		{
+			/* Create any tasks that depend on the network */
+			uint32 main_task;
+			BaseType_t status;
+			status =  OS_TaskCreate(&main_task, "Main Test Task", Run_Test, NULL, 4096, 31, 0);
+
+			if (status != OS_SUCCESS) {
+				fprintf(stderr, "ERROR: Could not spawn main task\n");
+			}
+			else {
+				xTasksAlreadyCreated = pdTRUE;
+			}
+		}
 	}
 }
 

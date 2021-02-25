@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<projectDescription>
+	<name>osal-freertos-windows-select-test</name>
+	<comment></comment>
+	<projects>
+		<project>osal-pc-freertos-windows-lib</project>
+	</projects>
+	<buildSpec>
+		<buildCommand>
+			<name>org.eclipse.cdt.managedbuilder.core.genmakebuilder</name>
+			<triggers>clean,full,incremental,</triggers>
+			<arguments>
+			</arguments>
+		</buildCommand>
+		<buildCommand>
+			<name>org.eclipse.cdt.managedbuilder.core.ScannerConfigBuilder</name>
+			<triggers>full,incremental,</triggers>
+			<arguments>
+			</arguments>
+		</buildCommand>
+	</buildSpec>
+	<natures>
+		<nature>org.eclipse.cdt.core.cnature</nature>
+		<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
+		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
+	</natures>
+	<linkedResources>
+		<link>
+			<name>ut_assert</name>
+			<type>2</type>
+			<locationURI>OSAL_ROOT/ut_assert</locationURI>
+		</link>
+	</linkedResources>
+	<variableList>
+		<variable>
+			<name>OSAL_ROOT</name>
+			<value>file:/C:/Users/sully/Documents/METECS_OSAL/osal</value>
+		</variable>
+	</variableList>
+</projectDescription>

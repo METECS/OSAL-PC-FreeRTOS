@@ -76,16 +76,6 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
-					<folderInfo id="cdt.managedbuild.config.gnu.mingw.lib.debug.579450231.1129006609" name="/" resourcePath="src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/Npcap">
-						<toolChain id="cdt.managedbuild.toolchain.gnu.mingw.lib.debug.869763874" name="MinGW GCC" superClass="cdt.managedbuild.toolchain.gnu.mingw.lib.debug" unusedChildren="">
-							<tool id="cdt.managedbuild.tool.gnu.assembler.mingw.lib.debug.1516851368" name="GCC Assembler" superClass="cdt.managedbuild.tool.gnu.assembler.mingw.lib.debug.520863174"/>
-							<tool id="cdt.managedbuild.tool.gnu.archiver.mingw.lib.debug.1778698603" name="GCC Archiver" superClass="cdt.managedbuild.tool.gnu.archiver.mingw.lib.debug.1571403618"/>
-							<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.lib.debug.125402404" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.lib.debug.175320991"/>
-							<tool id="cdt.managedbuild.tool.gnu.c.compiler.mingw.lib.debug.1063964260" name="GCC C Compiler" superClass="cdt.managedbuild.tool.gnu.c.compiler.mingw.lib.debug.891559804"/>
-							<tool id="cdt.managedbuild.tool.gnu.c.linker.mingw.base.1461799033" name="MinGW C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.mingw.base.888772907"/>
-							<tool id="cdt.managedbuild.tool.gnu.cpp.linker.mingw.base.1392609577" name="MinGW C++ Linker" superClass="cdt.managedbuild.tool.gnu.cpp.linker.mingw.base.2133152456"/>
-						</toolChain>
-					</folderInfo>
 					<sourceEntries>
 						<entry excluding="bsp|ut_assert/src|src" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name=""/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
@@ -148,10 +138,10 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-FAT/portable/common}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-TCP/include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/Compiler/GCC}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/npcap-sdk}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/npcap-sdk/Include}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/npcap-sdk/Lib}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/ut_assert/inc}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/osal-pc-freertos-windows-lib/src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/Npcap}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/osal-pc-freertos-windows-lib/src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/Npcap/Include}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/osal-pc-freertos-windows-lib/src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/Npcap/Lib}&quot;"/>
 								</option>
 								<option id="gnu.c.compiler.option.misc.other.1275414182" name="Other flags" superClass="gnu.c.compiler.option.misc.other" useByScannerDiscovery="false" value="-c -fmessage-length=0 -m32" valueType="string"/>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.960199213" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
