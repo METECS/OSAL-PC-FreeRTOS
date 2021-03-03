@@ -51,9 +51,6 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS_Source/include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-FAT/include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-FAT/portable/common}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-TCP/include}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/Compiler/GCC}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/Npcap/Include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/ut_assert/inc}&quot;"/>
 								</option>
 								<option id="gnu.c.compiler.option.misc.other.1166448137" name="Other flags" superClass="gnu.c.compiler.option.misc.other" useByScannerDiscovery="false" value="-c -fmessage-length=0 -m32" valueType="string"/>
@@ -76,9 +73,23 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
+					<folderInfo id="cdt.managedbuild.config.gnu.mingw.lib.debug.579450231.400348662" name="/" resourcePath="src/os/portable">
+						<toolChain id="cdt.managedbuild.toolchain.gnu.mingw.lib.debug.1083963258" name="MinGW GCC" superClass="cdt.managedbuild.toolchain.gnu.mingw.lib.debug" unusedChildren="">
+							<tool id="cdt.managedbuild.tool.gnu.assembler.mingw.lib.debug.1595708676" name="GCC Assembler" superClass="cdt.managedbuild.tool.gnu.assembler.mingw.lib.debug.520863174">
+								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.1402773494" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
+							</tool>
+							<tool id="cdt.managedbuild.tool.gnu.archiver.mingw.lib.debug.1748474765" name="GCC Archiver" superClass="cdt.managedbuild.tool.gnu.archiver.mingw.lib.debug.1571403618"/>
+							<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.lib.debug.1802827716" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.lib.debug.175320991"/>
+							<tool id="cdt.managedbuild.tool.gnu.c.compiler.mingw.lib.debug.871820904" name="GCC C Compiler" superClass="cdt.managedbuild.tool.gnu.c.compiler.mingw.lib.debug.891559804">
+								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.745945464" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
+							</tool>
+							<tool id="cdt.managedbuild.tool.gnu.c.linker.mingw.base.1432181819" name="MinGW C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.mingw.base.888772907"/>
+							<tool id="cdt.managedbuild.tool.gnu.cpp.linker.mingw.base.1571058333" name="MinGW C++ Linker" superClass="cdt.managedbuild.tool.gnu.cpp.linker.mingw.base.2133152456"/>
+						</toolChain>
+					</folderInfo>
 					<sourceEntries>
 						<entry excluding="bsp|ut_assert/src|src" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name=""/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
+						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -97,7 +108,7 @@
 					</externalSetting>
 				</externalSettings>
 				<extensions>
-					<extension id="org.eclipse.cdt.core.PE64" point="org.eclipse.cdt.core.BinaryParser"/>
+					<extension id="org.eclipse.cdt.core.PE" point="org.eclipse.cdt.core.BinaryParser"/>
 					<extension id="org.eclipse.cdt.core.GASErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
 					<extension id="org.eclipse.cdt.core.GCCErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
 				</extensions>
@@ -136,12 +147,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS_Source/include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-FAT/include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-FAT/portable/common}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-TCP/include}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/Compiler/GCC}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/ut_assert/inc}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/osal-pc-freertos-windows-lib/src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/Npcap}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/osal-pc-freertos-windows-lib/src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/Npcap/Include}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/osal-pc-freertos-windows-lib/src/os/freertos-windows/FreeRTOS-Plus-TCP/portable/NetworkInterface/WinPCap/Npcap/Lib}&quot;"/>
 								</option>
 								<option id="gnu.c.compiler.option.misc.other.1275414182" name="Other flags" superClass="gnu.c.compiler.option.misc.other" useByScannerDiscovery="false" value="-c -fmessage-length=0 -m32" valueType="string"/>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.960199213" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
@@ -152,7 +158,7 @@
 					</folderInfo>
 					<sourceEntries>
 						<entry excluding="share|bsp|src" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
+						<entry excluding="os/freertos-windows/freertos_logging.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>

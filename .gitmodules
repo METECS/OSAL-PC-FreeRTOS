@@ -1,0 +1,9 @@
+[submodule "external-dependencies/FreeRTOS"]
+	path = external-dependencies/FreeRTOS
+	url = https://github.com/FreeRTOS/FreeRTOS.git
+[submodule "external-dependencies/osal"]
+	path = external-dependencies/osal
+	url = https://github.com/METECS/osal.git
+[submodule "external-dependencies/Lab-Project-FreeRTOS-FAT"]
+	path = external-dependencies/Lab-Project-FreeRTOS-FAT
+	url = https://github.com/FreeRTOS/Lab-Project-FreeRTOS-FAT.git

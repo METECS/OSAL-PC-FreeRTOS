@@ -164,72 +164,31 @@ int32 OS_GenericClose_Impl(uint32 local_id)
 {
 	int status = 0;
 
-	//Network socket
-	if(OS_impl_filehandle_table[local_id].selectable)
+	if(OS_impl_filehandle_table[local_id].VolumeType == RAM_DISK)
 	{
-		/* Initiate graceful shutdown. */
-		status = FreeRTOS_shutdown(OS_impl_filehandle_table[local_id].fd, FREERTOS_SHUT_RDWR);
-
-		if(status == 0) //TCP socket that is still connected
-		{
-			/* Wait for the socket to disconnect gracefully before closing the socket. */
-			char Buf_rcv[100] = {0};
-			TickType_t ticks = OS_Milli2Ticks(200);
-			int result;
-			while( (result = FreeRTOS_recv( OS_impl_filehandle_table[local_id].fd, Buf_rcv, sizeof(Buf_rcv), 0 )) >= 0)
-			{
-				if(result == 0)
-				{
-					vTaskDelay(ticks);
-				}
-			}
-		}
-
-		status = FreeRTOS_closesocket(OS_impl_filehandle_table[local_id].fd);
-		if(status != 1)
-		{
-			return OS_FS_ERROR;
-		}
-		else
-		{
-			OS_impl_filehandle_table[local_id].VolumeType = -1;
-			OS_impl_filehandle_table[local_id].fd = NULL;
-			OS_impl_filehandle_table[local_id].selectable = false;
-			OS_impl_filehandle_table[local_id].connected = false;
-			OS_impl_filehandle_table[local_id].disconnected = false;
-
-			return OS_FS_SUCCESS;
-		}
+		status = ff_fclose(OS_impl_filehandle_table[local_id].fd);
 	}
-	//File
+	else if(OS_impl_filehandle_table[local_id].VolumeType == FS_BASED)
+	{
+		status = fclose(OS_impl_filehandle_table[local_id].fd);
+	}
 	else
 	{
-		if(OS_impl_filehandle_table[local_id].VolumeType == RAM_DISK)
-		{
-			status = ff_fclose(OS_impl_filehandle_table[local_id].fd);
-		}
-		else if(OS_impl_filehandle_table[local_id].VolumeType == FS_BASED)
-		{
-			status = fclose(OS_impl_filehandle_table[local_id].fd);
-		}
-		else
-		{
-			return OS_FS_ERR_PATH_INVALID;
-		}
+		return OS_FS_ERR_PATH_INVALID;
+	}
 
-		if(status != 0)
-		{
-			return OS_FS_ERROR;
-		}
-		else
-		{
-			OS_impl_filehandle_table[local_id].VolumeType = -1;
-			OS_impl_filehandle_table[local_id].fd = NULL;
-			OS_impl_filehandle_table[local_id].selectable = false;
-			OS_impl_filehandle_table[local_id].connected = false;
-			OS_impl_filehandle_table[local_id].disconnected = false;
-			return OS_FS_SUCCESS;
-		}
+	if(status != 0)
+	{
+		return OS_FS_ERROR;
+	}
+	else
+	{
+		OS_impl_filehandle_table[local_id].VolumeType = -1;
+		OS_impl_filehandle_table[local_id].fd = NULL;
+		OS_impl_filehandle_table[local_id].selectable = false;
+		OS_impl_filehandle_table[local_id].connected = false;
+		OS_impl_filehandle_table[local_id].disconnected = false;
+		return OS_FS_SUCCESS;
 	}
 } /* end OS_GenericClose_Impl */
 
@@ -246,51 +205,42 @@ int32 OS_GenericSeek_Impl(uint32 local_id, int32 offset, uint32 whence)
 	off_t status;
 	int where;
 
-	//Network socket
-	if(OS_impl_filehandle_table[local_id].selectable)
+	switch(whence)
 	{
-		return OS_FS_UNIMPLEMENTED;
+	case OS_SEEK_SET:
+		where = SEEK_SET;
+		break;
+	case OS_SEEK_CUR:
+		where = SEEK_CUR;
+		break;
+	case OS_SEEK_END:
+		where = SEEK_END;
+		break;
+	default:
+		return OS_FS_ERROR;
 	}
-	//File
+
+	if(OS_impl_filehandle_table[local_id].VolumeType == RAM_DISK)
+	{
+		status = ff_fseek(OS_impl_filehandle_table[local_id].fd, (off_t) offset, (int) where);
+	}
+	else if(OS_impl_filehandle_table[local_id].VolumeType == FS_BASED)
+	{
+		status = fseek(OS_impl_filehandle_table[local_id].fd, (off_t) offset, (int) where);
+	}
 	else
 	{
-		switch(whence)
-		{
-		case OS_SEEK_SET:
-			where = SEEK_SET;
-			break;
-		case OS_SEEK_CUR:
-			where = SEEK_CUR;
-			break;
-		case OS_SEEK_END:
-			where = SEEK_END;
-			break;
-		default:
-			return OS_FS_ERROR;
-		}
+		return OS_FS_ERR_PATH_INVALID;
+	}
 
-		if(OS_impl_filehandle_table[local_id].VolumeType == RAM_DISK)
-		{
-			status = ff_fseek(OS_impl_filehandle_table[local_id].fd, (off_t) offset, (int) where);
-		}
-		else if(OS_impl_filehandle_table[local_id].VolumeType == FS_BASED)
-		{
-			status = fseek(OS_impl_filehandle_table[local_id].fd, (off_t) offset, (int) where);
-		}
-		else
-		{
-			return OS_FS_ERR_PATH_INVALID;
-		}
-
-		if((int) status == 0)
-		{
-			//Not sure if there should be an ftell option for FS_BASED. Old FreeRTOS code had it the way it currently is.
-			return (int32) ff_ftell(OS_impl_filehandle_table[local_id].fd);
-		}
-		else
-		{
-			return OS_FS_ERROR;
-		}
+	if((int) status == 0)
+	{
+		//Not sure if there should be an ftell option for FS_BASED. Old FreeRTOS code had it the way it currently is.
+		return (int32) ff_ftell(OS_impl_filehandle_table[local_id].fd);
+	}
+	else
+	{
+		return OS_FS_ERROR;
 	}
 } /* end OS_GenericSeek_Impl */
 
@@ -306,69 +256,31 @@ int32 OS_GenericRead_Impl(uint32 local_id, void *buffer, uint32 nbytes, int32 ti
 {
 	int32 return_code;
 	size_t status;
-    uint32 operation;
 
 	return_code = OS_SUCCESS;
 
 	if(nbytes > 0)
 	{
-	   //Network socket
-	   if(OS_impl_filehandle_table[local_id].selectable)
+	   if(OS_impl_filehandle_table[local_id].VolumeType == RAM_DISK)
 	   {
-		   operation = OS_STREAM_STATE_READABLE;
-		   return_code = OS_SelectSingle_Impl(local_id, &operation, timeout);
-		   if (return_code == OS_SUCCESS && (operation & OS_STREAM_STATE_READABLE) != 0)
-		   {
-			   status = FreeRTOS_recv(OS_impl_filehandle_table[local_id].fd, buffer, nbytes, 0);
-			   if(status == -pdFREERTOS_ERRNO_ENOTCONN)
-			   {
-				   return_code = 0; //This is the value BSD recv reports if the connection is closed.
-			   }
-			   else if(status < 0)
-			   {
-				   return_code = OS_ERROR;
-			   }
-			   else if(status == 0)
-			   {
-				   if(OS_impl_filehandle_table[local_id].disconnected)
-				   {
-					   return_code = 0; //This is the value BSD recv reports if the connection is closed.
-				   }
-				   else
-				   {
-					   return_code = OS_ERROR_TIMEOUT;
-				   }
-			   }
-			   else
-			   {
-				   return_code = status;
-			   }
-		   }
+		   status = ff_fread(buffer, 1, nbytes, OS_impl_filehandle_table[local_id].fd);
 	   }
-	   //File
+	   else if(OS_impl_filehandle_table[local_id].VolumeType == FS_BASED)
+	   {
+		   status = fread(buffer, 1, nbytes, OS_impl_filehandle_table[local_id].fd);
+	   }
 	   else
 	   {
-		   if(OS_impl_filehandle_table[local_id].VolumeType == RAM_DISK)
-		   {
-			   status = ff_fread(buffer, 1, nbytes, OS_impl_filehandle_table[local_id].fd);
-		   }
-		   else if(OS_impl_filehandle_table[local_id].VolumeType == FS_BASED)
-		   {
-			   status = fread(buffer, 1, nbytes, OS_impl_filehandle_table[local_id].fd);
-		   }
-		   else
-		   {
-			   return OS_FS_ERR_PATH_INVALID;
-		   }
+		   return OS_FS_ERR_PATH_INVALID;
+	   }
 
-		   if(status <= 0)
-		   {
-			   return_code = OS_ERROR;
-		   }
-		   else
-		   {
-			   return_code = status;
-		   }
+	   if(status <= 0)
+	   {
+		   return_code = OS_ERROR;
+	   }
+	   else
+	   {
+		   return_code = status;
 	   }
 	}
 
@@ -387,54 +299,31 @@ int32 OS_GenericWrite_Impl(uint32 local_id, const void *buffer, uint32 nbytes, i
 {
 	size_t status;
 	int32 return_code;
-    uint32 operation;
 
 	return_code = OS_SUCCESS;
 
 	if(nbytes > 0)
 	{
-	   //Network socket
-	   if(OS_impl_filehandle_table[local_id].selectable)
-	   {
-		   operation = OS_STREAM_STATE_WRITABLE;
-		   return_code = OS_SelectSingle_Impl(local_id, &operation, timeout);
-		   if (return_code == OS_SUCCESS && (operation & OS_STREAM_STATE_WRITABLE) != 0)
-		   {
-			   status = FreeRTOS_send(OS_impl_filehandle_table[local_id].fd, buffer, nbytes, 0);
-			   if (status < 0)
-			   {
-				   return_code = OS_ERROR;
-			   }
-			   else
-			   {
-				   return_code = status;
-			   }
-		   }
-	   }
-	   //File
-	   else
-	   {
-			if(OS_impl_filehandle_table[local_id].VolumeType == RAM_DISK)
-			{
-				status = ff_fwrite(buffer, 1, nbytes, OS_impl_filehandle_table[local_id].fd);
-			}
-			else if(OS_impl_filehandle_table[local_id].VolumeType == FS_BASED)
-			{
-				status = fwrite(buffer, 1, nbytes, OS_impl_filehandle_table[local_id].fd);
-			}
-			else
-			{
-				return OS_FS_ERR_PATH_INVALID;
-			}
+		if(OS_impl_filehandle_table[local_id].VolumeType == RAM_DISK)
+		{
+			status = ff_fwrite(buffer, 1, nbytes, OS_impl_filehandle_table[local_id].fd);
+		}
+		else if(OS_impl_filehandle_table[local_id].VolumeType == FS_BASED)
+		{
+			status = fwrite(buffer, 1, nbytes, OS_impl_filehandle_table[local_id].fd);
+		}
+		else
+		{
+			return OS_FS_ERR_PATH_INVALID;
+		}
 
-			if(status > 0)
-			{
-			   return_code = status;
-			}
-			else
-			{
-			   return_code = OS_ERROR;
-			}
+		if(status > 0)
+		{
+		   return_code = status;
+		}
+		else
+		{
+		   return_code = OS_ERROR;
 		}
 	}
 

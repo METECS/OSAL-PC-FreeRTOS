@@ -50,7 +50,7 @@
 	<variableList>
 		<variable>
 			<name>OSAL_ROOT</name>
-			<value>file:/C:/Users/sully/Documents/METECS_OSAL/osal</value>
+			<value>$%7BWORKSPACE_LOC%7D/external-dependencies/osal</value>
 		</variable>
 	</variableList>
 </projectDescription>
