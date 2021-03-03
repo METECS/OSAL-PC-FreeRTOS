@@ -18,9 +18,9 @@ This repository contains an OSAL for FreeRTOS, specifically FreeRTOS running in 
 
    `git submodule update --init --recursive`
 
-	![](images\Checkout_OSAL.png)
+	![](images/Checkout_OSAL.png)
 
-	![](images\Checkout_OSAL2.png)
+	![](images/Checkout_OSAL2.png)
 
 6. In Eclipse, specify the OSAL for FreeRTOS location as the workspace. Eclipse version 2019-12 is being used at this time but more recent versions should work as well.
 
@@ -28,19 +28,19 @@ This repository contains an OSAL for FreeRTOS, specifically FreeRTOS running in 
 
 7. Import the projects into the Eclipse workspace.
 
-	![](C:\OSAL-PC-FreeRTOS\images\Import_Projects.png)
+	![](images/Import_Projects.png)
 
 8. Build the OSAL library and unit tests.
 
-	![](C:\OSAL-PC-FreeRTOS\images\Build.png)
+	![](images/Build.png)
 	
 4. Run the desired unit test.
 
-	![](C:\OSAL-PC-FreeRTOS\images\Run.png)
+	![](images/Run.png)
 
 5. Observe the results.
 
-	![](images\Results.png)
+	![](images/Results.png)
 
 ### Limitations ###
 
